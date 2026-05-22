@@ -20,9 +20,22 @@
         <jta-data-source>java:jboss/datasources/ErpBarbershopDS</jta-data-source>
 
         <!-- Entidades JPA registradas -->
+
+        <!-- Módulo: Identidade -->
         <class>com.erp.identidade.model.Usuario</class>
         <class>com.erp.identidade.model.Papel</class>
         <class>com.erp.identidade.model.LogAcesso</class>
+
+        <!-- Módulo: Catálogo -->
+        <class>com.erp.catalogo.model.Categoria</class>
+        <class>com.erp.catalogo.model.Produto</class>
+
+        <!-- Módulo: Compras -->
+        <class>com.erp.compras.model.Fornecedor</class>
+
+        <!-- Módulo: Vendas -->
+        <class>com.erp.vendas.model.Venda</class>
+        <class>com.erp.vendas.model.ItemVenda</class>
 
         <properties>
             <!-- ================================================ -->
