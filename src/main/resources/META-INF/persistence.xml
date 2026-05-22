@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Persistence Unit do ERP Barbershop.
+
+    Define a conexão JPA com o PostgreSQL e as configurações do Hibernate.
+    As credenciais vêm das variáveis de ambiente do Docker Compose.
+-->
+<persistence xmlns="http://xmlns.jcp.org/xml/ns/persistence"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xsi:schemaLocation="http://xmlns.jcp.org/xml/ns/persistence
+                                 http://xmlns.jcp.org/xml/ns/persistence/persistence_2_2.xsd"
+             version="2.2">
+
+    <persistence-unit name="erpBarbershopPU" transaction-type="JTA">
+
+        <!-- Provedor JPA: Hibernate (embutido no WildFly) -->
+        <provider>org.hibernate.jpa.HibernatePersistenceProvider</provider>
+
+        <!-- DataSource gerenciado pelo WildFly (configurado no standalone.xml) -->
+        <jta-data-source>java:jboss/datasources/ErpBarbershopDS</jta-data-source>
+
+        <!-- Entidades JPA registradas -->
+        <class>com.erp.identidade.model.Usuario</class>
+        <class>com.erp.identidade.model.Papel</class>
+        <class>com.erp.identidade.model.LogAcesso</class>
+
+        <properties>
+            <!-- ================================================ -->
+            <!-- Hibernate — Dialeto e DDL                        -->
+            <!-- ================================================ -->
+
+            <!-- Dialeto do PostgreSQL para geração otimizada de SQL -->
+            <property name="hibernate.dialect"
+                      value="org.hibernate.dialect.PostgreSQL10Dialect"/>
+
+            <!-- Estratégia de criação de schema:
+                 update  = cria/altera tabelas automaticamente (dev)
+                 validate = apenas valida o schema (produção)       -->
+            <property name="hibernate.hbm2ddl.auto" value="update"/>
+
+            <!-- ================================================ -->
+            <!-- Hibernate — Debug e Logging (desenvolvimento)    -->
+            <!-- ================================================ -->
+
+            <!-- Mostra as queries SQL geradas no console -->
+            <property name="hibernate.show_sql" value="true"/>
+
+            <!-- Formata as queries para facilitar a leitura -->
+            <property name="hibernate.format_sql" value="true"/>
+
+            <!-- ================================================ -->
+            <!-- Hibernate — Performance                          -->
+            <!-- ================================================ -->
+
+            <!-- Batch de inserts para melhor performance -->
+            <property name="hibernate.jdbc.batch_size" value="15"/>
+
+            <!-- Ordena inserts por entidade para otimizar batches -->
+            <property name="hibernate.order_inserts" value="true"/>
+
+            <!-- Ordena updates por entidade para otimizar batches -->
+            <property name="hibernate.order_updates" value="true"/>
+        </properties>
+
+    </persistence-unit>
+
+</persistence>

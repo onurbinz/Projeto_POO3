@@ -1,0 +1,173 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+                             http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <!-- ====================================================== -->
+    <!-- Coordenadas do Projeto                                  -->
+    <!-- ====================================================== -->
+    <groupId>br.com.barbershop</groupId>
+    <artifactId>erp-barbershop</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+    <packaging>war</packaging>
+
+    <name>ERP Barbershop</name>
+    <description>
+        ERP corporativo modular para back-office de Barbearia Moderna.
+        Módulos DDD: Identidade, Catálogo, Compras, Vendas e Relatórios.
+    </description>
+
+    <!-- ====================================================== -->
+    <!-- Propriedades — versões centralizadas                    -->
+    <!-- ====================================================== -->
+    <properties>
+        <!-- Encoding -->
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+
+        <!-- Java 17 -->
+        <maven.compiler.source>17</maven.compiler.source>
+        <maven.compiler.target>17</maven.compiler.target>
+
+        <!-- Jakarta EE 8 (provido pelo WildFly 26.1) -->
+        <!-- Inclui: EJB 3.2, JPA 2.2, JSF 2.3, Servlet 4.0, CDI 2.0 -->
+        <javaee.version>8.0</javaee.version>
+
+        <!-- PrimeFaces 12 — última major compatível com javax.faces 2.3 -->
+        <primefaces.version>12.0.0</primefaces.version>
+
+        <!-- PostgreSQL JDBC Driver -->
+        <postgresql.version>42.7.3</postgresql.version>
+
+        <!-- Spring Security 5.8.x — última linha compatível com javax.servlet -->
+        <spring-security.version>5.8.14</spring-security.version>
+
+        <!-- Plugins -->
+        <maven-compiler-plugin.version>3.13.0</maven-compiler-plugin.version>
+        <maven-war-plugin.version>3.4.0</maven-war-plugin.version>
+    </properties>
+
+    <!-- ====================================================== -->
+    <!-- Dependências                                            -->
+    <!-- ====================================================== -->
+    <dependencies>
+
+        <!-- ================================================== -->
+        <!-- PROVIDED pelo WildFly 26.1 (Jakarta EE 8)          -->
+        <!-- O container já possui estas bibliotecas; elas NÃO  -->
+        <!-- são empacotadas no WAR.                             -->
+        <!--                                                    -->
+        <!-- APIs incluídas:                                     -->
+        <!--   • EJB 3.2  (javax.ejb)                           -->
+        <!--   • JPA 2.2  (javax.persistence) + Hibernate 5.3   -->
+        <!--   • JSF 2.3  (javax.faces)                         -->
+        <!--   • Servlet 4.0  (javax.servlet)                   -->
+        <!--   • CDI 2.0  (javax.enterprise.inject)             -->
+        <!--   • Bean Validation 2.0                             -->
+        <!--   • JAX-RS 2.1, JMS 2.0, JTA 1.2, etc.            -->
+        <!--                                                    -->
+        <!-- NOTA: O WildFly 26.1 implementa JPA 2.2, não 3.1. -->
+        <!-- JPA 3.1 requer Jakarta EE 10 (WildFly 27+).        -->
+        <!-- Para este projeto, JPA 2.2 é totalmente suficiente.-->
+        <!-- ================================================== -->
+        <dependency>
+            <groupId>javax</groupId>
+            <artifactId>javaee-api</artifactId>
+            <version>${javaee.version}</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <!-- ================================================== -->
+        <!-- COMPILE — empacotadas dentro do WAR                 -->
+        <!-- ================================================== -->
+
+        <!-- PrimeFaces 12: componentes ricos para JSF 2.3       -->
+        <!-- (DataTable, Calendar, Dialog, Charts, etc.)         -->
+        <dependency>
+            <groupId>org.primefaces</groupId>
+            <artifactId>primefaces</artifactId>
+            <version>${primefaces.version}</version>
+        </dependency>
+
+        <!-- PostgreSQL JDBC Driver                              -->
+        <!-- Necessário em compile para que o Hibernate/JPA      -->
+        <!-- consiga se conectar ao banco via persistence.xml    -->
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <version>${postgresql.version}</version>
+        </dependency>
+
+        <!-- ================================================== -->
+        <!-- Spring Security 5.8.x                               -->
+        <!-- Controle de acesso RBAC, autenticação, BCrypt       -->
+        <!-- Compatível com javax.servlet (Jakarta EE 8)         -->
+        <!-- ================================================== -->
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-core</artifactId>
+            <version>${spring-security.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-web</artifactId>
+            <version>${spring-security.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-config</artifactId>
+            <version>${spring-security.version}</version>
+        </dependency>
+
+    </dependencies>
+
+    <!-- ====================================================== -->
+    <!-- Build                                                   -->
+    <!-- ====================================================== -->
+    <build>
+        <!-- Nome do artefato gerado: erp-barbershop.war -->
+        <finalName>erp-barbershop</finalName>
+
+        <plugins>
+            <!-- Compilador Java 17 -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>${maven-compiler-plugin.version}</version>
+                <configuration>
+                    <source>${maven.compiler.source}</source>
+                    <target>${maven.compiler.target}</target>
+                    <encoding>${project.build.sourceEncoding}</encoding>
+                </configuration>
+            </plugin>
+
+            <!-- Empacotamento WAR -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-war-plugin</artifactId>
+                <version>${maven-war-plugin.version}</version>
+                <configuration>
+                    <!-- Permite build mesmo sem web.xml (JSF pode usar anotações) -->
+                    <failOnMissingWebXml>false</failOnMissingWebXml>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
+    <!-- ====================================================== -->
+    <!-- Repositórios adicionais                                 -->
+    <!-- ====================================================== -->
+    <repositories>
+        <!-- PrimeFaces Community Repository -->
+        <repository>
+            <id>primefaces</id>
+            <name>PrimeFaces Repository</name>
+            <url>https://repository.primefaces.org</url>
+        </repository>
+    </repositories>
+
+</project>
