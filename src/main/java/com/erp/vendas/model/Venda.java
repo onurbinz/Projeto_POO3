@@ -19,6 +19,7 @@ import javax.persistence.Id;
 import javax.persistence.JoinColumn;
 import javax.persistence.ManyToOne;
 import javax.persistence.OneToMany;
+import javax.persistence.PrePersist;
 import javax.persistence.Table;
 
 import com.erp.identidade.model.Usuario;
@@ -93,6 +94,22 @@ public class Venda implements Serializable {
     @Column(name = "forma_pagamento", nullable = false, length = 20)
     private FormaPagamento formaPagamento;
 
+    /**
+     * Status do ciclo de vida da venda (representa o carrinho de compras).
+     *
+     * <ul>
+     *   <li>{@code ABERTA}    — carrinho em composição; itens podem ser adicionados/removidos.</li>
+     *   <li>{@code FECHADA}   — venda finalizada e paga; registro imutável.</li>
+     *   <li>{@code CANCELADA} — venda cancelada; estoque deve ser estornado.</li>
+     * </ul>
+     *
+     * <p>O status é definido automaticamente como {@code ABERTA} pelo
+     * {@link #prePersist()} no momento da criação.</p>
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false, length = 15)
+    private StatusVenda status;
+
     // ==========================================================
     // Relacionamentos
     // ==========================================================
@@ -132,6 +149,20 @@ public class Venda implements Serializable {
 
     /** Construtor padrão exigido pelo JPA. */
     public Venda() {
+    }
+
+    /**
+     * Inicializa o status como ABERTA antes de qualquer INSERT.
+     * Garante que toda venda nova começa como um carrinho aberto.
+     */
+    @PrePersist
+    private void prePersist() {
+        if (this.status == null) {
+            this.status = StatusVenda.ABERTA;
+        }
+        if (this.dataVenda == null) {
+            this.dataVenda = LocalDateTime.now();
+        }
     }
 
     /**
@@ -229,6 +260,24 @@ public class Venda implements Serializable {
         this.formaPagamento = formaPagamento;
     }
 
+    public StatusVenda getStatus() {
+        return status;
+    }
+
+    public void setStatus(StatusVenda status) {
+        this.status = status;
+    }
+
+    /** Finaliza a venda (fecha o carrinho). */
+    public void fechar() {
+        this.status = StatusVenda.FECHADA;
+    }
+
+    /** Cancela a venda. */
+    public void cancelar() {
+        this.status = StatusVenda.CANCELADA;
+    }
+
     public Usuario getUsuario() {
         return usuario;
     }
@@ -269,6 +318,7 @@ public class Venda implements Serializable {
                ", dataVenda=" + dataVenda +
                ", valorTotal=" + valorTotal +
                ", formaPagamento=" + formaPagamento +
+               ", status=" + status +
                ", qtdItens=" + itens.size() +
                '}';
     }

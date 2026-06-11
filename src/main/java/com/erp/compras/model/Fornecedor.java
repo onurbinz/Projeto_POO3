@@ -81,6 +81,14 @@ public class Fornecedor implements Serializable {
     @Column(name = "email_contato", nullable = false, length = 200)
     private String emailContato;
 
+    /**
+     * Telefone de contato do fornecedor.
+     * Armazenado sem formatação. Suporta DDD + número (fixo ou celular).
+     * Exemplo armazenado: "21987654321"
+     */
+    @Column(name = "telefone", length = 20)
+    private String telefone;
+
     // ==========================================================
     // Relacionamentos
     // ==========================================================
@@ -107,6 +115,21 @@ public class Fornecedor implements Serializable {
 
     /**
      * Construtor de conveniência.
+     *
+     * @param nome          nome fantasia ou razão social
+     * @param cnpj          CNPJ sem formatação (14 dígitos)
+     * @param emailContato  email de contato
+     * @param telefone      telefone de contato (opcional)
+     */
+    public Fornecedor(String nome, String cnpj, String emailContato, String telefone) {
+        this.nome = nome;
+        this.cnpj = cnpj;
+        this.emailContato = emailContato;
+        this.telefone = telefone;
+    }
+
+    /**
+     * Construtor de conveniência sem telefone.
      *
      * @param nome          nome fantasia ou razão social
      * @param cnpj          CNPJ sem formatação (14 dígitos)
@@ -154,6 +177,14 @@ public class Fornecedor implements Serializable {
         this.emailContato = emailContato;
     }
 
+    public String getTelefone() {
+        return telefone;
+    }
+
+    public void setTelefone(String telefone) {
+        this.telefone = telefone;
+    }
+
     public List<Produto> getProdutos() {
         return produtos;
     }
@@ -185,6 +216,7 @@ public class Fornecedor implements Serializable {
                "id=" + id +
                ", nome='" + nome + '\'' +
                ", cnpj='" + cnpj + '\'' +
+               ", emailContato='" + emailContato + '\'' +
                '}';
     }
 }

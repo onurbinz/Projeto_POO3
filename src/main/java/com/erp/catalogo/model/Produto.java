@@ -13,6 +13,7 @@ import javax.persistence.Id;
 import javax.persistence.JoinColumn;
 import javax.persistence.ManyToOne;
 import javax.persistence.Table;
+import javax.persistence.PrePersist;
 
 import com.erp.compras.model.Fornecedor;
 
@@ -106,6 +107,21 @@ public class Produto implements Serializable {
     @Column(name = "quantidade_minima")
     private Integer quantidadeMinima;
 
+    /**
+     * Flag de exclusão lógica (soft delete).
+     *
+     * <p><b>Padrão: {@code true}</b> — produto ativo e visível no sistema.</p>
+     *
+     * <p>Quando {@code false}, o produto é tratado como excluído:
+     * não aparece em listagens, buscas ou no catálogo. O registro
+     * físico no banco é preservado para fins de auditoria e histórico
+     * de vendas anteriores que referenciam este produto.</p>
+     *
+     * <p>Nunca use {@code DELETE} direto em produtos — use {@link #desativar()}.</p>
+     */
+    @Column(name = "ativo", nullable = false)
+    private boolean ativo = true;
+
     // ==========================================================
     // Relacionamentos
     // ==========================================================
@@ -143,6 +159,18 @@ public class Produto implements Serializable {
 
     /** Construtor padrão exigido pelo JPA. */
     public Produto() {
+    }
+
+    /**
+     * Ponto de extensão {@code @PrePersist}: executado pelo JPA antes de qualquer INSERT.
+     *
+     * <p>O campo {@code ativo} já possui valor padrão {@code true} na declaração.
+     * Este método existe como ponto de extensão para lógicas futuras
+     * (ex: timestamp de criação, validações extras antes de salvar).</p>
+     */
+    @PrePersist
+    private void prePersist() {
+        // Ponto de extensão — lógica de pré-persistência adicionada aqui futuramente
     }
 
     /**
@@ -209,6 +237,21 @@ public class Produto implements Serializable {
         return quantidadeEstoque == null && fornecedor == null;
     }
 
+    /**
+     * Realiza a exclusão lógica do produto.
+     * O registro permanece no banco mas fica invisível para o sistema.
+     */
+    public void desativar() {
+        this.ativo = false;
+    }
+
+    /**
+     * Reativa um produto previamente desativado.
+     */
+    public void ativar() {
+        this.ativo = true;
+    }
+
     // ==========================================================
     // Getters e Setters
     // ==========================================================
@@ -261,6 +304,14 @@ public class Produto implements Serializable {
         this.quantidadeMinima = quantidadeMinima;
     }
 
+    public boolean isAtivo() {
+        return ativo;
+    }
+
+    public void setAtivo(boolean ativo) {
+        this.ativo = ativo;
+    }
+
     public Categoria getCategoria() {
         return categoria;
     }
@@ -301,6 +352,7 @@ public class Produto implements Serializable {
                ", nome='" + nome + '\'' +
                ", preco=" + preco +
                ", estoque=" + quantidadeEstoque +
+               ", ativo=" + ativo +
                '}';
     }
 }

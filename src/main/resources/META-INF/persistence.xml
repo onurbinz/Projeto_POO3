@@ -4,6 +4,10 @@
 
     Define a conexão JPA com o PostgreSQL e as configurações do Hibernate.
     As credenciais vêm das variáveis de ambiente do Docker Compose.
+
+    Provedor: Hibernate 5.3 (embutido no WildFly 26.1)
+    Banco: PostgreSQL 15
+    JPA Version: 2.2 (máximo suportado pelo WildFly 26.1)
 -->
 <persistence xmlns="http://xmlns.jcp.org/xml/ns/persistence"
              xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -42,13 +46,32 @@
             <!-- Hibernate — Dialeto e DDL                        -->
             <!-- ================================================ -->
 
-            <!-- Dialeto do PostgreSQL para geração otimizada de SQL -->
+            <!--
+                Dialeto do PostgreSQL para geração otimizada de SQL.
+
+                Histórico de aliases:
+                  - Hibernate 5.3 (WildFly 26.1): org.hibernate.dialect.PostgreSQL10Dialect
+                    é o dialeto específico mais recente disponível.
+                  - Hibernate 6.x (WildFly 27+): org.hibernate.dialect.PostgreSQLDialect
+                    (auto-detecta versão do servidor).
+
+                Para PostgreSQL 15 no WildFly 26.1 (Hibernate 5.3),
+                PostgreSQL10Dialect é o correto — suporta todas as features
+                usadas no projeto (JSON, JSONB não são usados aqui).
+            -->
             <property name="hibernate.dialect"
                       value="org.hibernate.dialect.PostgreSQL10Dialect"/>
 
-            <!-- Estratégia de criação de schema:
-                 update  = cria/altera tabelas automaticamente (dev)
-                 validate = apenas valida o schema (produção)       -->
+            <!--
+                Estratégia de criação de schema:
+                  validate = apenas valida (produção — RECOMENDADO)
+                  update   = cria/altera tabelas automaticamente (desenvolvimento)
+                  create   = recria o schema do zero (testes)
+                  create-drop = recria ao subir e derruba ao encerrar (testes)
+
+                ATENÇÃO: "update" em produção pode causar perda de dados.
+                Use "validate" + flyway/liquibase para migrações controladas.
+            -->
             <property name="hibernate.hbm2ddl.auto" value="update"/>
 
             <!-- ================================================ -->
@@ -60,6 +83,13 @@
 
             <!-- Formata as queries para facilitar a leitura -->
             <property name="hibernate.format_sql" value="true"/>
+
+            <!--
+                Adiciona comentários nos logs SQL identificando a origem
+                da query (qual método/repositório a gerou).
+                Extramemente útil para depuração em desenvolvimento.
+            -->
+            <property name="hibernate.use_sql_comments" value="true"/>
 
             <!-- ================================================ -->
             <!-- Hibernate — Performance                          -->

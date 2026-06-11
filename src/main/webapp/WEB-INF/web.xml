@@ -8,7 +8,7 @@
     <display-name>ERP Barbershop</display-name>
 
     <!-- ====================================================== -->
-    <!-- JSF 2.3 — Servlet do FacesServlet                       -->
+    <!-- JSF 2.3 — FacesServlet                                 -->
     <!-- ====================================================== -->
     <servlet>
         <servlet-name>FacesServlet</servlet-name>
@@ -21,23 +21,62 @@
     </servlet-mapping>
 
     <!-- ====================================================== -->
-    <!-- Configurações do JSF                                    -->
+    <!-- Spring Security — DelegatingFilterProxy                 -->
+    <!-- Integra a cadeia de filtros do Spring com o web.xml.   -->
+    <!-- O nome "springSecurityFilterChain" é o bean-name padrão-->
+    <!-- registrado pelo @EnableWebSecurity.                     -->
+    <!-- ====================================================== -->
+    <filter>
+        <filter-name>springSecurityFilterChain</filter-name>
+        <filter-class>org.springframework.web.filter.DelegatingFilterProxy</filter-class>
+    </filter>
+    <filter-mapping>
+        <filter-name>springSecurityFilterChain</filter-name>
+        <url-pattern>/*</url-pattern>
+        <dispatcher>REQUEST</dispatcher>
+        <dispatcher>FORWARD</dispatcher>
+        <dispatcher>ERROR</dispatcher>
+    </filter-mapping>
+
+    <!-- ====================================================== -->
+    <!-- Spring — Carregamento do contexto de aplicação          -->
+    <!-- Necessário para que @Configuration/@Bean sejam lidos.  -->
+    <!-- ====================================================== -->
+    <listener>
+        <listener-class>org.springframework.web.context.ContextLoaderListener</listener-class>
+    </listener>
+    <context-param>
+        <param-name>contextConfigLocation</param-name>
+        <!-- Aponta para a classe de configuração Spring (não usa XML do Spring) -->
+        <param-value>com.erp.identidade.security.SecurityConfig</param-value>
+    </context-param>
+
+    <!-- ====================================================== -->
+    <!-- Spring Security — Publicador de eventos de sessão       -->
+    <!-- Necessário para SessionRegistry (controle de sessões)  -->
+    <!-- ====================================================== -->
+    <listener>
+        <listener-class>org.springframework.security.web.session.HttpSessionEventPublisher</listener-class>
+    </listener>
+
+    <!-- ====================================================== -->
+    <!-- JSF — Parâmetros de configuração                        -->
     <!-- ====================================================== -->
 
-    <!-- Modo de desenvolvimento (mude para Production em prod) -->
+    <!-- Modo de projeto: Development (logs detalhados). Trocar para Production em produção -->
     <context-param>
         <param-name>javax.faces.PROJECT_STAGE</param-name>
         <param-value>Development</param-value>
     </context-param>
 
-    <!-- Charset padrão -->
+    <!-- Charset padrão UTF-8 -->
     <context-param>
         <param-name>javax.faces.FACELETS_ENCODING</param-name>
         <param-value>UTF-8</param-value>
     </context-param>
 
     <!-- ====================================================== -->
-    <!-- PrimeFaces — Tema e configurações                       -->
+    <!-- PrimeFaces — Tema e recursos                            -->
     <!-- ====================================================== -->
     <context-param>
         <param-name>primefaces.THEME</param-name>
@@ -49,10 +88,64 @@
     </context-param>
 
     <!-- ====================================================== -->
-    <!-- Página de boas-vindas                                   -->
+    <!-- Gerenciamento de Sessão — Timeout                       -->
+    <!-- 30 minutos de inatividade invalida a sessão.           -->
+    <!-- O Spring Security redireciona para /login?sessao=expirada -->
+    <!-- ====================================================== -->
+    <session-config>
+        <session-timeout>30</session-timeout>
+        <cookie-config>
+            <!-- HttpOnly: impede acesso ao cookie via JavaScript (XSS mitigation) -->
+            <http-only>true</http-only>
+            <!-- Secure: cookie só trafega por HTTPS -->
+            <secure>true</secure>
+            <name>JSESSIONID</name>
+        </cookie-config>
+        <!-- STRICT: cookie de sessão não é enviado em requisições cross-site -->
+        <tracking-mode>COOKIE</tracking-mode>
+    </session-config>
+
+    <!-- ====================================================== -->
+    <!-- Restrição de Segurança — HTTPS Obrigatório              -->
+    <!-- O container WildFly redireciona HTTP → HTTPS.          -->
+    <!-- O Spring Security também reforça via requiresChannel(). -->
+    <!-- ====================================================== -->
+    <security-constraint>
+        <web-resource-collection>
+            <web-resource-name>Toda a aplicação</web-resource-name>
+            <url-pattern>/*</url-pattern>
+        </web-resource-collection>
+        <user-data-constraint>
+            <!-- CONFIDENTIAL = requer HTTPS (o container redireciona automaticamente) -->
+            <transport-guarantee>CONFIDENTIAL</transport-guarantee>
+        </user-data-constraint>
+    </security-constraint>
+
+    <!-- ====================================================== -->
+    <!-- Páginas de Erro — Redirect para login em 403/401        -->
+    <!-- ====================================================== -->
+    <error-page>
+        <error-code>403</error-code>
+        <location>/login?erro=acesso_negado</location>
+    </error-page>
+    <error-page>
+        <error-code>401</error-code>
+        <location>/login?erro=nao_autenticado</location>
+    </error-page>
+    <error-page>
+        <error-code>404</error-code>
+        <location>/pages/erro/404.xhtml</location>
+    </error-page>
+    <error-page>
+        <error-code>500</error-code>
+        <location>/pages/erro/500.xhtml</location>
+    </error-page>
+
+    <!-- ====================================================== -->
+    <!-- Página de boas-vindas — Redireciona para /login         -->
     <!-- ====================================================== -->
     <welcome-file-list>
-        <welcome-file>index.xhtml</welcome-file>
+        <welcome-file>login.xhtml</welcome-file>
     </welcome-file-list>
 
 </web-app>
