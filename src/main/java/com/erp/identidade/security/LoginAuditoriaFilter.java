@@ -9,8 +9,9 @@ import org.springframework.security.core.userdetails.UserDetails;
 
 import javax.annotation.Priority;
 import javax.persistence.EntityManager;
+import javax.persistence.EntityManagerFactory;
 import javax.persistence.NoResultException;
-import javax.persistence.PersistenceContext;
+import javax.persistence.PersistenceUnit;
 import javax.servlet.Filter;
 import javax.servlet.FilterChain;
 import javax.servlet.FilterConfig;
@@ -19,32 +20,52 @@ import javax.servlet.ServletRequest;
 import javax.servlet.ServletResponse;
 import javax.servlet.annotation.WebFilter;
 import javax.servlet.http.HttpServletRequest;
-import javax.transaction.Transactional;
 import java.io.IOException;
 import java.time.LocalDateTime;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
- * Filtro especializado para auditoria de tentativas de LOGIN.
+ * Filtro especializado para auditoria de tentativas de LOGIN e LOGOUT.
  *
- * <p>Enquanto o {@link AuditoriaFilter} audita requisições de usuários já
- * autenticados, este filtro intercepta especificamente o endpoint {@code POST /login}
- * para registrar tanto logins bem-sucedidos quanto falhas de autenticação.</p>
+ * <h3>Escopo:</h3>
+ * <p>Intercepta exclusivamente o endpoint {@code POST /login} para registrar
+ * tentativas de autenticação — tanto bem-sucedidas quanto falhas.</p>
  *
- * <p>O log de login usa o email informado no formulário como identificador
- * do usuário, mesmo antes da autenticação ser confirmada.</p>
+ * <h3>Separação de responsabilidades:</h3>
+ * <ul>
+ *   <li>{@link LoginAuditoriaFilter} — audita LOGIN/LOGIN_FALHA (este filtro)</li>
+ *   <li>{@link AuditoriaFilter}      — audita todas as demais ações autenticadas</li>
+ * </ul>
+ *
+ * <h3>Dados capturados:</h3>
+ * <ul>
+ *   <li><b>Usuário</b>    — email digitado no formulário (identificado pelo parâmetro "username")</li>
+ *   <li><b>Data/Hora</b>  — momento da tentativa</li>
+ *   <li><b>Ação</b>       — "LOGIN" (sucesso) ou "LOGIN_FALHA" (credenciais inválidas)</li>
+ *   <li><b>IP de origem</b> — resolvido via X-Forwarded-For ou RemoteAddr</li>
+ *   <li><b>Resultado</b>  — {@link ResultadoAcesso#SUCESSO} ou {@link ResultadoAcesso#ERRO}</li>
+ * </ul>
  *
  * @see AuditoriaFilter
  * @see LoginAttemptService
  */
 @WebFilter(
-    filterName = "LoginAuditoriaFilter",
-    urlPatterns = "/login"
+    filterName     = "LoginAuditoriaFilter",
+    urlPatterns    = "/login",
+    asyncSupported = true
 )
-@Priority(2)
+@Priority(2)  // Executa logo após IpBloqueioFilter (Priority 1)
 public class LoginAuditoriaFilter implements Filter {
 
-    @PersistenceContext(unitName = "erpBarbershopPU")
-    private EntityManager em;
+    private static final Logger LOG = Logger.getLogger(LoginAuditoriaFilter.class.getName());
+
+    /**
+     * @see AuditoriaFilter — mesma estratégia: EntityManagerFactory para controle
+     * manual de transação em filtros Servlet (não-EJB).
+     */
+    @PersistenceUnit(unitName = "erpBarbershopPU")
+    private EntityManagerFactory emf;
 
     @Override
     public void init(FilterConfig config) throws ServletException { }
@@ -53,68 +74,117 @@ public class LoginAuditoriaFilter implements Filter {
     public void destroy() { }
 
     @Override
-    public void doFilter(ServletRequest servletRequest,
+    public void doFilter(ServletRequest  servletRequest,
                          ServletResponse servletResponse,
-                         FilterChain chain)
+                         FilterChain     chain)
             throws IOException, ServletException {
 
         HttpServletRequest request = (HttpServletRequest) servletRequest;
 
-        // Somente audita requisições POST (tentativa de login)
+        // Audita apenas requisições POST (tentativa de autenticação)
+        // GET /login é a exibição da página — não há credenciais a auditar
         if (!"POST".equalsIgnoreCase(request.getMethod())) {
             chain.doFilter(servletRequest, servletResponse);
             return;
         }
 
-        // Captura o email antes de a requisição ser processada
+        // Captura os dados ANTES de processar a requisição
+        // (após o chain.doFilter, o InputStream pode estar consumido)
         String emailFormulario = request.getParameter("username");
-        String ip = ErpAuthenticationSuccessHandler.resolverIp(request);
+        String ip              = AuditoriaFilter.resolverIp(request);
 
-        // Processa o login normalmente
+        // Processa o login (Spring Security valida as credenciais aqui)
         chain.doFilter(servletRequest, servletResponse);
 
-        // Pós-processamento: verifica se o login foi bem-sucedido
-        // O Spring Security popula o SecurityContext se a autenticação teve sucesso
+        // Pós-processamento: determina o resultado verificando o SecurityContext
+        // Se o Spring autenticou com sucesso, o principal será um UserDetails
         Object principal = null;
         if (SecurityContextHolder.getContext().getAuthentication() != null) {
             principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         }
 
-        boolean loginSucesso = principal instanceof UserDetails;
-        ResultadoAcesso resultado = loginSucesso ? ResultadoAcesso.SUCESSO : ResultadoAcesso.ERRO;
+        boolean        loginSucesso = (principal instanceof UserDetails);
+        ResultadoAcesso resultado   = loginSucesso
+                                      ? ResultadoAcesso.SUCESSO
+                                      : ResultadoAcesso.ERRO;
 
         gravarLogLogin(emailFormulario, ip, resultado);
     }
 
-    @Transactional(Transactional.TxType.REQUIRES_NEW)
-    protected void gravarLogLogin(String email, String ip, ResultadoAcesso resultado) {
-        try {
-            if (email == null || email.isBlank()) return;
+    // =========================================================
+    // Persistência do log de login — transação independente
+    // =========================================================
 
-            // Tenta localizar o usuário no banco — pode não existir (tentativa com email inválido)
-            Usuario usuario = buscarPorEmail(email);
+    /**
+     * Grava o registro de tentativa de login com transação manual.
+     *
+     * <p>Emails desconhecidos (usuário inexistente no banco) são registrados
+     * apenas no log do servidor — não no banco — para não criar registros
+     * órfãos sem FK válida para {@code usuario_id}.</p>
+     *
+     * @param email     email digitado no formulário de login
+     * @param ip        IP de origem da tentativa
+     * @param resultado SUCESSO ou ERRO
+     */
+    protected void gravarLogLogin(String         email,
+                                  String         ip,
+                                  ResultadoAcesso resultado) {
+
+        if (email == null || email.isBlank()) return;
+        if (emf == null) {
+            LOG.warning("[LoginAuditoriaFilter] EntityManagerFactory não injetado — log ignorado.");
+            return;
+        }
+
+        EntityManager em = emf.createEntityManager();
+        try {
+            em.getTransaction().begin();
+
+            Usuario usuario = buscarPorEmail(em, email);
             if (usuario == null) {
-                // Log de segurança no servidor: tentativa com email desconhecido
-                System.err.printf("[SEGURANÇA] Tentativa de login com email desconhecido: %s | IP: %s%n",
-                    email, ip);
+                // Tentativa com email inexistente — alerta de segurança no servidor
+                LOG.warning(String.format(
+                    "[SEGURANÇA] Tentativa de login com email inexistente: '%s' | IP: %s | Resultado: %s",
+                    email, ip, resultado
+                ));
+                em.getTransaction().rollback();
                 return;
             }
+
+            String acao = (resultado == ResultadoAcesso.SUCESSO) ? "LOGIN" : "LOGIN_FALHA";
 
             LogAcesso log = new LogAcesso(
                 usuario,
                 LocalDateTime.now(),
-                resultado == ResultadoAcesso.SUCESSO ? "LOGIN" : "LOGIN_FALHA",
+                acao,
                 ip,
                 resultado
             );
             em.persist(log);
 
+            em.getTransaction().commit();
+
         } catch (Exception ex) {
-            System.err.println("[LoginAuditoriaFilter] Erro ao gravar log: " + ex.getMessage());
+            LOG.log(Level.SEVERE, "[LoginAuditoriaFilter] Erro ao gravar log de login", ex);
+            try {
+                if (em.getTransaction().isActive()) {
+                    em.getTransaction().rollback();
+                }
+            } catch (Exception rollbackEx) {
+                LOG.log(Level.SEVERE, "[LoginAuditoriaFilter] Falha no rollback", rollbackEx);
+            }
+        } finally {
+            if (em.isOpen()) {
+                em.close();
+            }
         }
     }
 
-    private Usuario buscarPorEmail(String email) {
+    // =========================================================
+    // Auxiliar — busca de usuário
+    // =========================================================
+
+    private Usuario buscarPorEmail(EntityManager em, String email) {
         try {
             return em.createQuery(
                     "SELECT u FROM Usuario u WHERE u.email = :email",

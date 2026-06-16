@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:h="http://xmlns.jcp.org/jsf/html"
+      xmlns:f="http://xmlns.jcp.org/jsf/core"
+      xmlns:p="http://primefaces.org/ui"
+      xmlns:ui="http://xmlns.jcp.org/jsf/facelets">
+
+<h:head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>PDV — ERP Barbershop</title>
+    <h:outputStylesheet library="css" name="erp.css"/>
+    <h:outputStylesheet library="css" name="pdv.css"/>
+</h:head>
+
+<h:body>
+<h:form id="formPdv">
+
+    <p:growl id="msgs" life="6000" showDetail="true" sticky="false"/>
+
+    <!-- ================================================================
+         CABEÇALHO PDV
+         ================================================================ -->
+    <div class="pdv-header">
+        <div class="pdv-title">
+            <i class="fa fa-scissors"></i>
+            <span>Ponto de Venda</span>
+        </div>
+        <div class="pdv-header-right">
+            <!-- Badge com quantidade de itens no carrinho -->
+            <div class="carrinho-badge">
+                <i class="fa fa-shopping-cart"></i>
+                <span class="badge-count">#{pdvBean.quantidadeItens}</span>
+                iten(s)
+            </div>
+        </div>
+    </div>
+
+    <!-- ================================================================
+         LAYOUT: duas colunas — busca+produto (esquerda) | carrinho (direita)
+         ================================================================ -->
+    <div class="pdv-layout">
+
+        <!-- ============================================================
+             COLUNA ESQUERDA: Adicionar produto ao carrinho
+             ============================================================ -->
+        <div class="pdv-col-esquerda">
+            <div class="pdv-card">
+                <div class="pdv-card-titulo">
+                    <i class="fa fa-search"></i>
+                    Buscar Produto
+                </div>
+
+                <!-- AutoComplete de produto por nome -->
+                <div class="form-group">
+                    <label for="buscaProduto">Produto ou serviço</label>
+                    <p:autoComplete
+                        id="buscaProduto"
+                        value="#{pdvBean.produtoSelecionado}"
+                        completeMethod="#{pdvBean.buscarProdutos}"
+                        var="prod"
+                        itemLabel="#{prod.nome}"
+                        itemValue="#{prod}"
+                        converter="produtoConverter"
+                        forceSelection="true"
+                        minQueryLength="2"
+                        delay="200"
+                        scrollHeight="250"
+                        styleClass="form-input pdv-autocomplete"
+                        placeholder="Digite o nome do produto...">
+                        <!--
+                            Sugestão customizada: exibe nome, preço e estoque
+                            para o operador identificar rapidamente o produto.
+                        -->
+                        <p:column>
+                            <h:outputText value="#{prod.nome}" style="font-weight:600"/>
+                        </p:column>
+                        <p:column style="text-align:right; color:var(--color-muted); font-size:.8rem;">
+                            <h:outputText value="#{prod.preco}">
+                                <f:convertNumber type="currency" currencySymbol="R$ "
+                                                 minFractionDigits="2" locale="pt_BR"/>
+                            </h:outputText>
+                            <h:outputText
+                                value=" | Est: #{prod.quantidadeEstoque != null ? prod.quantidadeEstoque : 'Serviço'}"/>
+                        </p:column>
+                    </p:autoComplete>
+                </div>
+
+                <!-- Quantidade -->
+                <div class="form-group">
+                    <label for="qtdAdicionar">Quantidade</label>
+                    <p:spinner
+                        id="qtdAdicionar"
+                        value="#{pdvBean.quantidadeAdicionar}"
+                        min="1"
+                        max="9999"
+                        stepFactor="1"
+                        styleClass="form-input pdv-spinner"/>
+                </div>
+
+                <!-- Botão adicionar -->
+                <p:commandButton
+                    id="btnAdicionar"
+                    value="Adicionar ao carrinho"
+                    icon="fa fa-plus-circle"
+                    styleClass="btn-primary btn-full"
+                    actionListener="#{pdvBean.adicionarAoCarrinho}"
+                    update="tabelaCarrinho painelTotal msgs"
+                    process="buscaProduto qtdAdicionar"/>
+
+                <!-- Painel de informação do produto selecionado -->
+                <p:outputPanel id="painelProdutoInfo"
+                               styleClass="produto-info-panel"
+                               rendered="#{pdvBean.produtoSelecionado != null}">
+                    <div class="produto-info">
+                        <span class="produto-info-nome">#{pdvBean.produtoSelecionado.nome}</span>
+                        <span class="produto-info-preco">
+                            <h:outputText value="#{pdvBean.produtoSelecionado.preco}">
+                                <f:convertNumber type="currency" currencySymbol="R$ "
+                                                 minFractionDigits="2" locale="pt_BR"/>
+                            </h:outputText>
+                        </span>
+                        <p:tag
+                            value="#{pdvBean.produtoSelecionado.servico ? 'Serviço' : 'Estoque: '.concat(pdvBean.produtoSelecionado.quantidadeEstoque)}"
+                            severity="#{pdvBean.produtoSelecionado.servico ? 'info' : 'success'}"/>
+                    </div>
+                </p:outputPanel>
+            </div>
+
+            <!-- Forma de pagamento -->
+            <div class="pdv-card">
+                <div class="pdv-card-titulo">
+                    <i class="fa fa-credit-card"></i>
+                    Forma de Pagamento
+                </div>
+                <div class="pagamento-opcoes">
+                    <ui:repeat value="#{pdvBean.formasPagamento}" var="fp">
+                        <div class="pagamento-opcao #{pdvBean.formaPagamento == fp ? 'ativo' : ''}">
+                            <h:selectOneRadio id="radioFp"
+                                              value="#{pdvBean.formaPagamento}"
+                                              layout="lineDirection">
+                                <f:selectItem
+                                    itemLabel="#{pdvBean.labelFormaPagamento(fp)}"
+                                    itemValue="#{fp}"/>
+                            </h:selectOneRadio>
+                        </div>
+                    </ui:repeat>
+                </div>
+                <!--
+                    Select simples para evitar problemas com o ui:repeat + radio.
+                    Remove o ui:repeat acima em produção e mantenha apenas este select.
+                -->
+                <p:selectOneMenu id="selectPagamento"
+                                 value="#{pdvBean.formaPagamento}"
+                                 styleClass="form-select"
+                                 style="margin-top:.5rem;">
+                    <f:selectItem itemLabel="PIX (instantâneo)"  itemValue="PIX"/>
+                    <f:selectItem itemLabel="Cartão de Crédito"  itemValue="CARTAO_CREDITO"/>
+                    <f:selectItem itemLabel="Boleto Bancário"    itemValue="BOLETO"/>
+                </p:selectOneMenu>
+            </div>
+        </div>
+
+        <!-- ============================================================
+             COLUNA DIREITA: Carrinho de compras
+             ============================================================ -->
+        <div class="pdv-col-direita">
+            <div class="pdv-card pdv-card-carrinho">
+                <div class="pdv-card-titulo">
+                    <i class="fa fa-shopping-cart"></i>
+                    Carrinho
+                    <!-- Badge de itens -->
+                    <span class="carrinho-count">#{pdvBean.quantidadeItens}</span>
+                </div>
+
+                <!-- Mensagem quando o carrinho está vazio -->
+                <div class="carrinho-vazio"
+                     style="display: #{pdvBean.carrinhoVazio ? 'flex' : 'none'}">
+                    <i class="fa fa-inbox fa-2x"></i>
+                    <span>Carrinho vazio</span>
+                    <small>Adicione produtos pelo campo de busca</small>
+                </div>
+
+                <!-- Tabela do carrinho -->
+                <p:dataTable
+                    id="tabelaCarrinho"
+                    value="#{pdvBean.itensCarrinho}"
+                    var="item"
+                    styleClass="erp-table pdv-table"
+                    rendered="#{not pdvBean.carrinhoVazio}"
+                    emptyMessage="">
+
+                    <!-- Produto -->
+                    <p:column headerText="Produto" style="min-width:160px;">
+                        <h:outputText value="#{item.produto.nome}" style="font-weight:500"/>
+                        <br/>
+                        <small style="color:var(--color-muted); font-size:.78rem;">
+                            <h:outputText value="#{item.precoUnitario}">
+                                <f:convertNumber type="currency" currencySymbol="R$ "
+                                                 minFractionDigits="2" locale="pt_BR"/>
+                            </h:outputText>
+                            / un.
+                        </small>
+                    </p:column>
+
+                    <!-- Quantidade (editável via spinner) -->
+                    <p:column headerText="Qtd" style="width:110px; text-align:center;">
+                        <p:spinner
+                            value="#{item.quantidade}"
+                            min="1"
+                            max="#{item.produto.quantidadeEstoque != null ? item.produto.quantidadeEstoque : 9999}"
+                            stepFactor="1"
+                            styleClass="spinner-qtd"
+                            onchange="PF('formPdv').dirty=true">
+                            <p:ajax event="change"
+                                    update="painelTotal"
+                                    process="tabelaCarrinho"/>
+                        </p:spinner>
+                    </p:column>
+
+                    <!-- Subtotal -->
+                    <p:column headerText="Subtotal" style="width:110px; text-align:right;">
+                        <strong>
+                            <h:outputText value="#{item.subtotal}">
+                                <f:convertNumber type="currency" currencySymbol="R$ "
+                                                 minFractionDigits="2" locale="pt_BR"/>
+                            </h:outputText>
+                        </strong>
+                    </p:column>
+
+                    <!-- Remover item -->
+                    <p:column style="width:44px; text-align:center;">
+                        <p:commandButton
+                            icon="fa fa-times"
+                            styleClass="btn-icon btn-danger"
+                            title="Remover item"
+                            actionListener="#{pdvBean.removerItem(item)}"
+                            update="tabelaCarrinho painelTotal msgs"
+                            immediate="true"/>
+                    </p:column>
+                </p:dataTable>
+
+                <!-- ================================================
+                     PAINEL TOTAL + BOTÕES DE AÇÃO
+                     ================================================ -->
+                <p:outputPanel id="painelTotal" styleClass="painel-total">
+                    <div class="total-linha">
+                        <span class="total-label">Total da Venda</span>
+                        <span class="total-valor">
+                            <h:outputText value="#{pdvBean.totalCarrinho}">
+                                <f:convertNumber type="currency" currencySymbol="R$ "
+                                                 minFractionDigits="2" locale="pt_BR"/>
+                            </h:outputText>
+                        </span>
+                    </div>
+
+                    <div class="pdv-acoes">
+                        <!-- Finalizar Venda -->
+                        <p:commandButton
+                            id="btnFinalizar"
+                            value="Finalizar Venda"
+                            icon="fa fa-check-circle"
+                            styleClass="btn-finalizar"
+                            disabled="#{pdvBean.carrinhoVazio}"
+                            action="#{pdvBean.finalizarVenda}"
+                            update="tabelaCarrinho painelTotal msgs dialogRecibo"
+                            oncomplete="if (!args.validationFailed &amp;&amp; #{pdvBean.dialogReciboVisivel}) PF('dlgRecibo').show()"/>
+
+                        <!-- Limpar carrinho -->
+                        <p:commandButton
+                            id="btnLimpar"
+                            value="Cancelar"
+                            icon="fa fa-trash"
+                            styleClass="btn-secondary"
+                            immediate="true"
+                            disabled="#{pdvBean.carrinhoVazio}"
+                            actionListener="#{pdvBean.limparCarrinho}"
+                            update="tabelaCarrinho painelTotal msgs"
+                            onclick="return confirm('Cancelar a venda e limpar o carrinho?')"/>
+                    </div>
+                </p:outputPanel>
+            </div>
+        </div>
+        <!-- /pdv-col-direita -->
+
+    </div>
+    <!-- /pdv-layout -->
+
+    <!-- ================================================================
+         DIALOG: RECIBO DE VENDA (exibido após checkout bem-sucedido)
+         ================================================================ -->
+    <p:dialog
+        id="dialogRecibo"
+        header="✓ Venda Concluída"
+        widgetVar="dlgRecibo"
+        modal="true"
+        resizable="false"
+        styleClass="erp-dialog dialog-recibo"
+        style="width: 480px;">
+
+        <p:outputPanel rendered="#{pdvBean.ultimaVenda != null}">
+            <div class="recibo">
+                <!-- Número e data da venda -->
+                <div class="recibo-header">
+                    <div class="recibo-numero">Venda ##{pdvBean.ultimaVenda.id}</div>
+                    <div class="recibo-data">
+                        <h:outputText value="#{pdvBean.ultimaVenda.dataVenda}">
+                            <f:convertDateTime pattern="dd/MM/yyyy HH:mm" locale="pt_BR"/>
+                        </h:outputText>
+                    </div>
+                </div>
+
+                <!-- Itens vendidos -->
+                <div class="recibo-itens">
+                    <ui:repeat value="#{pdvBean.ultimaVenda.itens}" var="ri">
+                        <div class="recibo-item">
+                            <span class="recibo-item-nome">
+                                #{ri.produto.nome} × #{ri.quantidade}
+                            </span>
+                            <span class="recibo-item-valor">
+                                <h:outputText value="#{ri.subtotal}">
+                                    <f:convertNumber type="currency" currencySymbol="R$ "
+                                                     minFractionDigits="2" locale="pt_BR"/>
+                                </h:outputText>
+                            </span>
+                        </div>
+                    </ui:repeat>
+                </div>
+
+                <!-- Total e forma de pagamento -->
+                <div class="recibo-total">
+                    <div class="recibo-total-linha">
+                        <span>Forma de Pagamento</span>
+                        <strong>#{pdvBean.labelFormaPagamento(pdvBean.ultimaVenda.formaPagamento)}</strong>
+                    </div>
+                    <div class="recibo-total-linha recibo-total-valor">
+                        <span>TOTAL</span>
+                        <strong>
+                            <h:outputText value="#{pdvBean.ultimaVenda.valorTotal}">
+                                <f:convertNumber type="currency" currencySymbol="R$ "
+                                                 minFractionDigits="2" locale="pt_BR"/>
+                            </h:outputText>
+                        </strong>
+                    </div>
+                </div>
+            </div>
+        </p:outputPanel>
+
+        <f:facet name="footer">
+            <div class="dialog-footer">
+                <p:commandButton
+                    value="Nova Venda"
+                    icon="fa fa-plus"
+                    styleClass="btn-primary"
+                    actionListener="#{pdvBean.limparCarrinho}"
+                    update="tabelaCarrinho painelTotal msgs"
+                    oncomplete="PF('dlgRecibo').hide()"/>
+            </div>
+        </f:facet>
+    </p:dialog>
+
+</h:form>
+</h:body>
+</html>

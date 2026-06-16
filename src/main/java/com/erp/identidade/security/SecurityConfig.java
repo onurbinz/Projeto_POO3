@@ -2,9 +2,14 @@ package com.erp.identidade.security;
 
 import com.erp.identidade.service.UsuarioDetailsService;
 
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
+import org.springframework.security.config.annotation.method.configuration.EnableGlobalMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
@@ -13,42 +18,63 @@ import org.springframework.security.core.session.SessionRegistryImpl;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-import org.springframework.security.web.authentication.session.RegisterSessionAuthenticationStrategy;
-import org.springframework.security.web.authentication.session.SessionAuthenticationStrategy;
 import org.springframework.security.web.header.writers.XXssProtectionHeaderWriter;
 import org.springframework.security.web.session.HttpSessionEventPublisher;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
 
 import javax.inject.Inject;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Configuração central do Spring Security para o ERP Barbershop.
+ * Configuração central do Spring Security — ERP Barbershop (Etapa 3).
  *
  * <h3>Responsabilidades:</h3>
  * <ul>
- *   <li>Autenticação via banco (email + BCrypt) — sem OAuth, sem LDAP</li>
- *   <li>RBAC com dois papéis: {@code ROLE_ADMIN} e {@code ROLE_DEFAULT}</li>
- *   <li>Proteção CSRF habilitada + headers de segurança (XSS, HSTS)</li>
- *   <li>Bloqueio de conta após falhas de login (via {@link LoginAttemptService})</li>
- *   <li>Timeout de sessão configurado e invalidação pós-logout</li>
+ *   <li>Autenticação exclusiva via banco (email + BCrypt): sem OAuth, sem LDAP</li>
+ *   <li>RBAC com DOIS papéis: {@code ROLE_ADMIN} e {@code ROLE_DEFAULT}</li>
+ *   <li>Proteção CSRF habilitada explicitamente</li>
+ *   <li>Headers de segurança: HSTS, X-XSS-Protection, X-Frame-Options, CSP</li>
+ *   <li>Session timeout + invalidação por sessão múltipla</li>
+ *   <li>Bloqueio de conta após falhas via {@link LoginAttemptService}</li>
+ *   <li>HTTPS obrigatório em todas as rotas</li>
  * </ul>
+ *
+ * <h3>Integração com WildFly/EJB:</h3>
+ * <p>O {@code contextConfigLocation} no {@code web.xml} aponta para esta classe.
+ * O Spring carrega apenas o contexto de segurança; EJBs continuam gerenciados
+ * pelo container WildFly via JNDI/CDI.</p>
  *
  * @see UsuarioDetailsService
  * @see LoginAttemptService
+ * @see AuditoriaFilter
  */
 @Configuration
 @EnableWebSecurity
+
+// Habilita @PreAuthorize/@PostAuthorize nos EJBs/CDI beans, se necessário
+@EnableGlobalMethodSecurity(prePostEnabled = true, securedEnabled = true)
+
+// Escaneia apenas o pacote de segurança para não conflitar com o contexto CDI do WildFly
+@ComponentScan(basePackages = {
+    "com.erp.identidade.security",
+    "com.erp.identidade.service"
+})
 public class SecurityConfig extends WebSecurityConfigurerAdapter {
 
     // =========================================================
     // Injeção de dependências
     // =========================================================
 
+    /**
+     * UserDetailsService que consulta a tabela 'usuarios' via JPA/EJB.
+     * Injetado pelo Spring context carregado pelo ContextLoaderListener.
+     */
     @Inject
     private UsuarioDetailsService usuarioDetailsService;
 
+    /**
+     * Serviço EJB Singleton que rastreia tentativas falhas por IP.
+     * Injetado via CDI (@Inject) — WildFly faz a ponte Spring ↔ EJB.
+     */
     @Inject
     private LoginAttemptService loginAttemptService;
 
@@ -57,8 +83,9 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
     // =========================================================
 
     /**
-     * Codificador de senhas BCrypt com custo 12.
-     * Custo 12 = ~250ms por hash em hardware moderno (equilíbrio segurança/performance).
+     * Codificador BCrypt com fator de custo 12.
+     * Custo 12 ≈ 250ms/hash em hardware moderno — equilíbrio segurança/UX.
+     * Nunca use custo < 10 em produção.
      */
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -66,7 +93,8 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
     }
 
     /**
-     * Registro de sessões ativas — necessário para controle de concorrência.
+     * Registro de sessões ativas.
+     * Necessário para {@code maximumSessions(1)} — controla concorrência por usuário.
      */
     @Bean
     public SessionRegistry sessionRegistry() {
@@ -74,8 +102,12 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
     }
 
     /**
-     * Publicador de eventos de sessão HTTP.
-     * Registrado no contexto para que o Spring Security rastreie criação/destruição de sessões.
+     * Publicador de eventos de criação/destruição de sessão HTTP.
+     * Obrigatório para que o {@link SessionRegistry} seja notificado
+     * quando sessões expiram ou são invalidadas.
+     *
+     * <p>Também registrado no {@code web.xml} como listener para garantir
+     * que o ciclo de vida completo seja capturado.</p>
      */
     @Bean
     public HttpSessionEventPublisher httpSessionEventPublisher() {
@@ -83,20 +115,25 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
     }
 
     // =========================================================
-    // Provider de autenticação — DAO com BCrypt
+    // Provider de autenticação — DAO + BCrypt
     // =========================================================
 
     /**
-     * Configura o provider de autenticação que busca o usuário no banco
-     * e valida a senha com BCrypt.
+     * Configura o DaoAuthenticationProvider que:
+     * <ol>
+     *   <li>Delega o carregamento do usuário ao {@link UsuarioDetailsService}</li>
+     *   <li>Valida a senha contra o hash BCrypt armazenado no banco</li>
+     *   <li>Oculta o motivo real da falha (user não encontrado vs. senha errada)
+     *       para prevenir user-enumeration attacks</li>
+     * </ol>
      */
     @Bean
     public DaoAuthenticationProvider authenticationProvider() {
         DaoAuthenticationProvider provider = new DaoAuthenticationProvider();
         provider.setUserDetailsService(usuarioDetailsService);
         provider.setPasswordEncoder(passwordEncoder());
-        // Esconde o motivo real da falha (user não encontrado vs senha errada)
-        // evitando user enumeration attacks
+        // true = lança BadCredentialsException em ambos os casos de falha,
+        //        não revelando se o usuário existe no banco
         provider.setHideUserNotFoundExceptions(true);
         return provider;
     }
@@ -106,6 +143,9 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
         auth.authenticationProvider(authenticationProvider());
     }
 
+    /**
+     * Expõe o AuthenticationManager como Bean Spring para uso nos handlers/filtros.
+     */
     @Bean
     @Override
     public AuthenticationManager authenticationManagerBean() throws Exception {
@@ -113,131 +153,199 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
     }
 
     // =========================================================
-    // Configuração HTTP — Autorização, CSRF, Headers, Sessão
+    // Configuração HTTP principal
+    // Ordem dos blocos é importante: canal → autorização → login
+    //                                → logout → CSRF → headers → sessão
     // =========================================================
 
     @Override
     protected void configure(HttpSecurity http) throws Exception {
         http
 
-            // ---- IP BLOQUEIO (brute-force) ------------------------------------
-            // Deve ser o PRIMEIRO filtro: IPs bloqueados são barrados antes do BCrypt
+            // ------------------------------------------------------------------
+            // [1] FILTRO DE BLOQUEIO POR IP (Brute-Force Protection)
+            // Deve ser o PRIMEIRO filtro da cadeia: IPs bloqueados são barrados
+            // antes do BCrypt ser executado (que é custoso por design).
+            // ------------------------------------------------------------------
             .addFilterBefore(
                 new IpBloqueioFilter(loginAttemptService),
                 UsernamePasswordAuthenticationFilter.class
             )
 
-            // ---- HTTPS -------------------------------------------------------
-            // Redireciona todo tráfego HTTP para HTTPS em produção
+            // ------------------------------------------------------------------
+            // [2] CANAL SEGURO — HTTPS OBRIGATÓRIO
+            // Redireciona HTTP → HTTPS em todas as rotas.
+            // O web.xml também declara CONFIDENTIAL no security-constraint,
+            // criando uma dupla proteção (container + Spring).
+            // ------------------------------------------------------------------
             .requiresChannel()
                 .anyRequest().requiresSecure()
             .and()
 
-            // ---- AUTORIZAÇÃO DE ROTAS (RBAC) ---------------------------------
+            // ------------------------------------------------------------------
+            // [3] AUTORIZAÇÃO DE ROTAS — RBAC (ADMIN / DEFAULT)
+            // Regra: do mais restritivo para o menos restritivo.
+            // Apenas DOIS papéis válidos: ROLE_ADMIN e ROLE_DEFAULT.
+            // ------------------------------------------------------------------
             .authorizeRequests()
-                // Recursos públicos — CSS, JS, imagens, fontes (sem autenticação)
-                .antMatchers("/login",
-                             "/login.xhtml",
-                             "/javax.faces.resource/**",
-                             "/resources/**").permitAll()
 
-                // Rotas exclusivas de ADMIN
+                // === ROTAS PÚBLICAS (sem autenticação) ===
+                // Página de login (GET e POST)
                 .antMatchers(
-                    "/pages/identidade/**",    // Gestão de usuários e papéis
-                    "/pages/relatorios/**"     // Relatórios gerenciais
+                    "/login",
+                    "/login.xhtml"
+                ).permitAll()
+
+                // Recursos estáticos do JSF/PrimeFaces (CSS, JS, imagens, fontes)
+                .antMatchers(
+                    "/javax.faces.resource/**",
+                    "/resources/**"
+                ).permitAll()
+
+                // === ROTAS EXCLUSIVAS DE ADMINISTRADOR ===
+                .antMatchers(
+                    "/pages/identidade/**",   // Gestão de usuários e papéis
+                    "/pages/relatorios/**"    // Relatórios gerenciais
                 ).hasRole("ADMIN")
 
-                // Rotas acessíveis por ADMIN e DEFAULT
+                // === ROTAS COMPARTILHADAS (ADMIN + DEFAULT) ===
                 .antMatchers(
-                    "/pages/vendas/**",        // Módulo de vendas
-                    "/pages/catalogo/**",      // Catálogo de produtos
-                    "/pages/compras/**"        // Módulo de compras
+                    "/pages/vendas/**",       // Módulo de vendas
+                    "/pages/catalogo/**",     // Catálogo de produtos e serviços
+                    "/pages/compras/**",      // Módulo de compras e fornecedores
+                    "/pages/dashboard.xhtml"  // Dashboard principal
                 ).hasAnyRole("ADMIN", "DEFAULT")
 
-                // Qualquer outra rota exige autenticação mínima
+                // Qualquer outra rota protegida exige autenticação mínima
                 .anyRequest().authenticated()
             .and()
 
-            // ---- FORMULÁRIO DE LOGIN -----------------------------------------
+            // ------------------------------------------------------------------
+            // [4] FORMULÁRIO DE LOGIN
+            // Página de login JSF servida pelo FacesServlet via /login mapping.
+            // O Spring Security intercepta o POST /login para autenticação.
+            // ------------------------------------------------------------------
             .formLogin()
-                .loginPage("/login")                     // Página personalizada (JSF)
-                .loginProcessingUrl("/login")            // POST endpoint processado pelo Spring
+                .loginPage("/login")                        // URL da página (GET)
+                .loginProcessingUrl("/login")               // Endpoint de autenticação (POST)
                 .defaultSuccessUrl("/pages/dashboard.xhtml", true)
                 .failureUrl("/login?erro=true")
-                .usernameParameter("username")
+                .usernameParameter("username")              // Campo email do formulário JSF
                 .passwordParameter("password")
                 .successHandler(autenticacaoSucessoHandler())
                 .failureHandler(autenticacaoFalhaHandler())
                 .permitAll()
             .and()
 
-            // ---- LOGOUT -------------------------------------------------------
+            // ------------------------------------------------------------------
+            // [5] LOGOUT
+            // Invalida sessão, remove cookie JSESSIONID e redireciona para /login.
+            // ------------------------------------------------------------------
             .logout()
                 .logoutUrl("/logout")
                 .logoutSuccessUrl("/login?logout=true")
-                .invalidateHttpSession(true)             // Invalida sessão completa
-                .deleteCookies("JSESSIONID")             // Remove cookie de sessão
-                .clearAuthentication(true)
+                .invalidateHttpSession(true)                // Invalida HttpSession
+                .deleteCookies("JSESSIONID")                // Remove cookie de sessão
+                .clearAuthentication(true)                  // Limpa SecurityContext
                 .permitAll()
             .and()
 
-            // ---- PROTEÇÃO CSRF -----------------------------------------------
-            // HABILITADA por padrão no Spring Security — explicitamente declarada
-            // JSF 2.3 já possui ViewState como token implícito, mas CSRF do Spring
-            // adiciona uma camada extra via header X-CSRF-TOKEN
+            // ------------------------------------------------------------------
+            // [6] PROTEÇÃO CSRF — HABILITADA EXPLICITAMENTE
+            // Spring Security habilita CSRF por padrão, mas declaramos
+            // explicitamente para deixar a intenção clara na configuração.
+            //
+            // JSF 2.3 usa ViewState como proteção implícita, mas o token
+            // CSRF do Spring adiciona uma segunda camada independente.
+            //
+            // Exceção: recursos JSF não enviam formulários — excluídos para
+            // evitar falsos positivos em requisições de recurso AJAX.
+            // ------------------------------------------------------------------
             .csrf()
-                .ignoringAntMatchers("/javax.faces.resource/**") // Recursos JSF não enviam CSRF
+                .ignoringAntMatchers("/javax.faces.resource/**")
             .and()
 
-            // ---- HEADERS DE SEGURANÇA ----------------------------------------
+            // ------------------------------------------------------------------
+            // [7] HEADERS DE SEGURANÇA (Proteção XSS e outros)
+            // ------------------------------------------------------------------
             .headers()
-                // Strict-Transport-Security: força HTTPS por 1 ano + subdomínios
+
+                // HSTS: força HTTPS por 1 ano + subdomínios (preload recomendado)
                 .httpStrictTransportSecurity()
                     .includeSubDomains(true)
                     .maxAgeInSeconds((int) TimeUnit.DAYS.toSeconds(365))
                 .and()
-                // X-Content-Type-Options: impede MIME sniffing
+
+                // X-Content-Type-Options: NOSNIFF — impede MIME-type sniffing
+                // Previne que browsers interpretem arquivos como tipo diferente
                 .contentTypeOptions()
                 .and()
-                // X-XSS-Protection: instrui browsers legados a bloquear XSS
+
+                // X-XSS-Protection: instrui browsers legados (IE/Edge antigo)
+                // a ativar o filtro XSS embutido e bloquear páginas suspeitas
                 .xssProtection()
                     .headerValue(XXssProtectionHeaderWriter.HeaderValue.ENABLED_MODE_BLOCK)
                 .and()
-                // X-Frame-Options: DENY — previne clickjacking em iframes
+
+                // X-Frame-Options: DENY — previne clickjacking via iframe
                 .frameOptions().deny()
-                // Content-Security-Policy: whitelist explícita de fontes permitidas
+                .and()
+
+                // Content-Security-Policy: whitelist explícita de origens confiáveis
+                // 'unsafe-inline' necessário para JSF/PrimeFaces (geração inline de scripts)
                 .contentSecurityPolicy(
                     "default-src 'self'; " +
-                    "script-src 'self' 'unsafe-inline' 'unsafe-eval'; " +   // JSF/PrimeFaces requerem inline
+                    "script-src 'self' 'unsafe-inline' 'unsafe-eval'; " +
                     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
                     "font-src 'self' https://fonts.gstatic.com; " +
                     "img-src 'self' data:; " +
+                    "connect-src 'self'; " +
                     "frame-ancestors 'none';"
                 )
             .and()
 
-            // ---- GERENCIAMENTO DE SESSÃO ------------------------------------
+            // ------------------------------------------------------------------
+            // [8] GERENCIAMENTO DE SESSÃO
+            // Timeout configurado no web.xml (30 min); aqui tratamos o redirect
+            // após expiração e prevenimos session fixation e sessões múltiplas.
+            // ------------------------------------------------------------------
             .sessionManagement()
-                // Invalida sessão antiga ao fazer novo login (evita session fixation)
+
+                // SESSION FIXATION: migra a sessão ao autenticar — o ID muda
+                // impedindo que um atacante fixe o ID antes do login
                 .sessionFixation().migrateSession()
-                // Timeout tratado pelo web.xml (30 min); redireciona após expirar
+
+                // Redireciona quando a sessão expirar (timeout do web.xml)
                 .invalidSessionUrl("/login?sessao=expirada")
-                // Máximo de 1 sessão simultânea por usuário
+
+                // Máximo 1 sessão simultânea por usuário
+                // Segunda sessão expira a primeira (política: último login vence)
                 .maximumSessions(1)
                     .expiredUrl("/login?sessao=multipla")
                     .sessionRegistry(sessionRegistry());
     }
 
     // =========================================================
-    // Handlers de Sucesso e Falha de Autenticação
-    // (delegam para LoginAttemptService para RBAC + auditoria)
+    // Handlers delegados de autenticação
     // =========================================================
 
+    /**
+     * Handler de sucesso: zera contador de falhas do IP e redireciona
+     * para a URL original salva antes do redirecionamento para o login.
+     *
+     * @see ErpAuthenticationSuccessHandler
+     */
     @Bean
     public ErpAuthenticationSuccessHandler autenticacaoSucessoHandler() {
         return new ErpAuthenticationSuccessHandler(loginAttemptService);
     }
 
+    /**
+     * Handler de falha: incrementa contador de tentativas por IP e
+     * redireciona com parâmetro de erro apropriado (bloqueado, conta inativa, etc.).
+     *
+     * @see ErpAuthenticationFailureHandler
+     */
     @Bean
     public ErpAuthenticationFailureHandler autenticacaoFalhaHandler() {
         return new ErpAuthenticationFailureHandler(loginAttemptService);

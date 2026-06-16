@@ -37,6 +37,7 @@ services:
     restart: unless-stopped
     ports:
       - "8080:8080"     # HTTP — aplicação
+      - "8443:8443"     # HTTPS — aplicação
       - "9990:9990"     # Console de administração
     depends_on:
       postgres:

@@ -1,0 +1,480 @@
+/* ==========================================================================
+   ERP Barbershop — Stylesheet Global (erp.css)
+   Cobre: Login, DataTable de Usuários, Diálogos, Botões e Feedback.
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. Variáveis de design (CSS Custom Properties)
+   -------------------------------------------------------------------------- */
+:root {
+    --color-bg:        #0f1117;
+    --color-surface:   #1a1d27;
+    --color-surface-2: #22263a;
+    --color-border:    #2e3250;
+    --color-primary:   #6c63ff;
+    --color-primary-h: #574fd6;
+    --color-success:   #22c55e;
+    --color-danger:    #ef4444;
+    --color-warning:   #f59e0b;
+    --color-info:      #3b82f6;
+    --color-text:      #e2e8f0;
+    --color-muted:     #94a3b8;
+    --radius:          8px;
+    --shadow:          0 4px 24px rgba(0,0,0,.45);
+    --font:            'Inter', 'Segoe UI', system-ui, sans-serif;
+}
+
+/* --------------------------------------------------------------------------
+   2. Reset e base
+   -------------------------------------------------------------------------- */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+html, body {
+    height: 100%;
+    font-family: var(--font);
+    font-size: 15px;
+    background: var(--color-bg);
+    color: var(--color-text);
+    line-height: 1.5;
+}
+
+/* --------------------------------------------------------------------------
+   3. Página de Login
+   -------------------------------------------------------------------------- */
+.login-body {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    background: radial-gradient(ellipse at 60% 40%, #1e1b4b 0%, #0f1117 70%);
+}
+
+.login-container {
+    width: 100%;
+    max-width: 400px;
+    padding: 2.5rem;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: calc(var(--radius) * 2);
+    box-shadow: var(--shadow);
+}
+
+.login-logo {
+    text-align: center;
+    margin-bottom: 2rem;
+    color: var(--color-primary);
+}
+.login-logo h1 {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: var(--color-text);
+    margin: .5rem 0 .25rem;
+}
+.login-logo p {
+    font-size: .85rem;
+    color: var(--color-muted);
+}
+
+/* Alertas de login */
+.login-alert {
+    display: flex;
+    flex-direction: column;
+    gap: .25rem;
+    padding: .75rem 1rem;
+    border-radius: var(--radius);
+    font-size: .875rem;
+    margin-bottom: 1.25rem;
+}
+.login-alert i { margin-right: .4rem; }
+.login-alert-error   { background: rgba(239,68,68,.12);  border: 1px solid rgba(239,68,68,.4);  color: #fca5a5; }
+.login-alert-success { background: rgba(34,197,94,.12);  border: 1px solid rgba(34,197,94,.4);  color: #86efac; }
+.login-alert-warning { background: rgba(245,158,11,.12); border: 1px solid rgba(245,158,11,.4); color: #fcd34d; }
+
+/* --------------------------------------------------------------------------
+   4. Campos de formulário (Login + Diálogos)
+   -------------------------------------------------------------------------- */
+.form-group {
+    margin-bottom: 1.25rem;
+}
+.form-group label {
+    display: block;
+    font-size: .85rem;
+    font-weight: 600;
+    color: var(--color-muted);
+    margin-bottom: .4rem;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+}
+.form-group label i { margin-right: .4rem; }
+
+.form-input,
+.form-input input,
+.ui-inputfield {
+    width: 100% !important;
+    padding: .65rem .9rem !important;
+    background: var(--color-surface-2) !important;
+    border: 1px solid var(--color-border) !important;
+    border-radius: var(--radius) !important;
+    color: var(--color-text) !important;
+    font-size: .95rem !important;
+    font-family: var(--font) !important;
+    transition: border-color .2s, box-shadow .2s !important;
+    outline: none !important;
+}
+.form-input:focus,
+.form-input input:focus,
+.ui-inputfield:focus {
+    border-color: var(--color-primary) !important;
+    box-shadow: 0 0 0 3px rgba(108,99,255,.25) !important;
+}
+
+.form-select .ui-selectonemenu {
+    width: 100% !important;
+    background: var(--color-surface-2) !important;
+    border: 1px solid var(--color-border) !important;
+    border-radius: var(--radius) !important;
+    color: var(--color-text) !important;
+}
+
+/* Campo de senha PrimeFaces */
+.form-input .ui-password input { background: transparent !important; border: none !important; }
+
+/* Asterisco de campo obrigatório */
+.required { color: var(--color-danger); margin-left: .2rem; }
+.hint      { font-weight: 400; color: var(--color-muted); font-size: .8rem; text-transform: none; }
+
+/* --------------------------------------------------------------------------
+   5. Botão de Login
+   -------------------------------------------------------------------------- */
+.btn-login {
+    width: 100%;
+    padding: .8rem;
+    margin-top: .5rem;
+    background: var(--color-primary);
+    color: #fff;
+    border: none;
+    border-radius: var(--radius);
+    font-size: 1rem;
+    font-weight: 600;
+    font-family: var(--font);
+    cursor: pointer;
+    letter-spacing: .02em;
+    transition: background .2s, transform .1s, box-shadow .2s;
+}
+.btn-login:hover {
+    background: var(--color-primary-h);
+    box-shadow: 0 4px 14px rgba(108,99,255,.45);
+}
+.btn-login:active { transform: scale(.98); }
+
+/* --------------------------------------------------------------------------
+   6. Cabeçalho interno de página
+   -------------------------------------------------------------------------- */
+.page-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1.5rem 2rem;
+    border-bottom: 1px solid var(--color-border);
+    background: var(--color-surface);
+    margin-bottom: 1.5rem;
+    border-radius: var(--radius);
+}
+.page-title {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--color-text);
+}
+.page-title i { color: var(--color-primary); margin-right: .5rem; }
+
+/* --------------------------------------------------------------------------
+   7. DataTable de usuários
+   -------------------------------------------------------------------------- */
+.erp-table.ui-datatable table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--color-surface);
+}
+.erp-table .ui-datatable-header,
+.erp-table .ui-column-title {
+    background: var(--color-surface-2) !important;
+    color: var(--color-muted) !important;
+    font-size: .8rem !important;
+    font-weight: 600 !important;
+    text-transform: uppercase !important;
+    letter-spacing: .05em !important;
+    padding: .85rem 1rem !important;
+    border-bottom: 1px solid var(--color-border) !important;
+}
+.erp-table .ui-datatable-data td {
+    padding: .85rem 1rem;
+    border-bottom: 1px solid var(--color-border);
+    vertical-align: middle;
+    color: var(--color-text);
+}
+.erp-table .ui-datatable-data tr:hover td {
+    background: rgba(108,99,255,.06) !important;
+}
+/* Linha de usuário inativo — levemente esmaecida */
+.erp-table .row-inativo td {
+    opacity: .5;
+    font-style: italic;
+}
+.erp-table .ui-paginator {
+    background: var(--color-surface-2) !important;
+    border-top: 1px solid var(--color-border) !important;
+    padding: .6rem !important;
+    color: var(--color-muted) !important;
+    font-size: .82rem !important;
+}
+
+/* --------------------------------------------------------------------------
+   8. Badges de status e perfil (p:tag)
+   -------------------------------------------------------------------------- */
+.ui-tag {
+    padding: .25rem .65rem !important;
+    border-radius: 99px !important;
+    font-size: .78rem !important;
+    font-weight: 600 !important;
+    letter-spacing: .02em !important;
+}
+.ui-tag-success { background: rgba(34,197,94,.15)  !important; color: #4ade80 !important; }
+.ui-tag-warning { background: rgba(245,158,11,.15) !important; color: #fbbf24 !important; }
+.ui-tag-danger  { background: rgba(239,68,68,.15)  !important; color: #f87171 !important; }
+.ui-tag-info    { background: rgba(59,130,246,.15)  !important; color: #60a5fa !important; }
+
+/* --------------------------------------------------------------------------
+   9. Botões de ação
+   -------------------------------------------------------------------------- */
+.btn-primary.ui-button {
+    background: var(--color-primary) !important;
+    border-color: var(--color-primary) !important;
+    color: #fff !important;
+    font-weight: 600 !important;
+    border-radius: var(--radius) !important;
+    padding: .55rem 1.2rem !important;
+    transition: background .2s, box-shadow .2s !important;
+}
+.btn-primary.ui-button:hover {
+    background: var(--color-primary-h) !important;
+    box-shadow: 0 4px 12px rgba(108,99,255,.4) !important;
+}
+
+.btn-secondary.ui-button {
+    background: transparent !important;
+    border: 1px solid var(--color-border) !important;
+    color: var(--color-muted) !important;
+    font-weight: 500 !important;
+    border-radius: var(--radius) !important;
+    padding: .55rem 1.2rem !important;
+}
+.btn-secondary.ui-button:hover {
+    background: var(--color-surface-2) !important;
+    color: var(--color-text) !important;
+}
+
+/* Botões ícone da tabela */
+.btn-icon.ui-button {
+    width: 34px !important; height: 34px !important;
+    padding: 0 !important;
+    border-radius: var(--radius) !important;
+    margin: 0 2px !important;
+}
+.btn-edit.ui-button    { background: rgba(59,130,246,.15) !important; border-color: transparent !important; color: #60a5fa !important; }
+.btn-danger.ui-button  { background: rgba(239,68,68,.15)  !important; border-color: transparent !important; color: #f87171 !important; }
+.btn-edit.ui-button:hover   { background: rgba(59,130,246,.3) !important; }
+.btn-danger.ui-button:hover { background: rgba(239,68,68,.3) !important; }
+
+/* --------------------------------------------------------------------------
+   10. Diálogos (p:dialog)
+   -------------------------------------------------------------------------- */
+.erp-dialog .ui-dialog {
+    background: var(--color-surface) !important;
+    border: 1px solid var(--color-border) !important;
+    border-radius: calc(var(--radius) * 1.5) !important;
+    box-shadow: var(--shadow) !important;
+}
+.erp-dialog .ui-dialog-titlebar {
+    background: var(--color-surface-2) !important;
+    border-bottom: 1px solid var(--color-border) !important;
+    color: var(--color-text) !important;
+    font-weight: 700 !important;
+    padding: 1rem 1.25rem !important;
+    border-radius: calc(var(--radius) * 1.5) calc(var(--radius) * 1.5) 0 0 !important;
+}
+.erp-dialog .ui-dialog-content {
+    background: var(--color-surface) !important;
+    padding: 1.5rem !important;
+}
+.erp-dialog .ui-dialog-footer {
+    background: var(--color-surface-2) !important;
+    border-top: 1px solid var(--color-border) !important;
+    padding: 1rem 1.25rem !important;
+    border-radius: 0 0 calc(var(--radius) * 1.5) calc(var(--radius) * 1.5) !important;
+}
+.form-grid         { display: grid; gap: 1rem; }
+.form-grid-2col    { grid-template-columns: 1fr 1fr; }
+.form-group-full   { grid-column: 1 / -1; }   /* Ocupa as 2 colunas */
+.dialog-footer     { display: flex; gap: .75rem; justify-content: flex-end; }
+
+/* --------------------------------------------------------------------------
+   11. Growl / Mensagens de feedback
+   -------------------------------------------------------------------------- */
+.ui-growl-item { border-radius: var(--radius) !important; }
+.ui-growl-item-container.ui-state-highlight.ui-growl-message-info    { background: rgba(59,130,246,.9) !important; }
+.ui-growl-item-container.ui-state-highlight.ui-growl-message-error   { background: rgba(239,68,68,.9) !important; }
+.ui-growl-item-container.ui-state-highlight.ui-growl-message-success { background: rgba(34,197,94,.9) !important; }
+
+/* --------------------------------------------------------------------------
+   12. Painel de alerta — Estoque baixo (produtos.xhtml)
+   -------------------------------------------------------------------------- */
+.alerta-estoque {
+    background: rgba(245,158,11,.1) !important;
+    border: 1px solid rgba(245,158,11,.4) !important;
+    border-radius: var(--radius) !important;
+    margin-bottom: 1.25rem;
+    padding: 1rem 1.25rem !important;
+}
+.alerta-estoque .ui-panel-content { padding: 0 !important; }
+
+.alerta-cabecalho {
+    color: #fbbf24;
+    font-size: .95rem;
+    font-weight: 600;
+    margin-bottom: .75rem;
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+}
+.alerta-cabecalho i { font-size: 1.1rem; }
+
+.alerta-lista {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: .35rem;
+}
+.alerta-lista li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: .35rem .6rem;
+    background: rgba(245,158,11,.08);
+    border-radius: calc(var(--radius) / 2);
+    font-size: .875rem;
+}
+.alerta-nome    { color: var(--color-text); font-weight: 500; }
+.alerta-estoque { color: var(--color-muted); font-size: .82rem; }
+.alerta-estoque strong { color: #f87171; }  /* Quantidade atual em vermelho */
+
+/* Linha da tabela com estoque baixo — fundo âmbar sutil */
+.erp-table .row-alerta td {
+    background: rgba(245,158,11,.06) !important;
+}
+.erp-table .row-alerta:hover td {
+    background: rgba(245,158,11,.12) !important;
+}
+
+/* Linha com estoque ZERADO — vermelho mais intenso */
+.erp-table .row-critico td {
+    background: rgba(239,68,68,.08) !important;
+}
+.erp-table .row-critico:hover td {
+    background: rgba(239,68,68,.15) !important;
+}
+
+/* --------------------------------------------------------------------------
+   13. Tela de Sugestões de Compra
+   -------------------------------------------------------------------------- */
+
+/* Badge de produtos críticos no cabeçalho */
+.badge-criticos {
+    background: rgba(239,68,68,.2);
+    color: #f87171;
+    border: 1px solid rgba(239,68,68,.4);
+    border-radius: 99px;
+    padding: .2rem .75rem;
+    font-size: .78rem;
+    font-weight: 700;
+    letter-spacing: .05em;
+    animation: pulse-badge 2s ease-in-out infinite;
+}
+@keyframes pulse-badge {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: .65; }
+}
+
+/* Painel "Estoque em dia" (sucesso) */
+.painel-ok {
+    background: rgba(34,197,94,.08) !important;
+    border: 1px solid rgba(34,197,94,.3) !important;
+    border-radius: var(--radius) !important;
+    margin-bottom: 1.5rem;
+}
+.painel-ok .ui-panel-content { padding: 1.25rem !important; }
+.painel-ok-content {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    color: #4ade80;
+    font-size: .95rem;
+}
+.painel-ok-content i { font-size: 1.8rem; }
+
+/* Painel informativo (rodapé) */
+.painel-info {
+    background: rgba(59,130,246,.06) !important;
+    border: 1px solid rgba(59,130,246,.25) !important;
+    border-radius: var(--radius) !important;
+    margin-top: 1.25rem;
+}
+.painel-info .ui-panel-content { padding: 1rem 1.25rem !important; }
+.info-texto { font-size: .875rem; color: var(--color-muted); line-height: 1.6; }
+.info-texto i { color: var(--color-info); margin-right: .4rem; }
+.info-texto strong { color: var(--color-text); }
+
+/* Gauge de estoque atual / mínimo */
+.estoque-gauge { display: flex; align-items: baseline; gap: .25rem; justify-content: center; }
+.estoque-atual { font-size: 1.2rem; font-weight: 700; }
+.estoque-sep   { color: var(--color-muted); }
+.estoque-min   { font-size: .85rem; color: var(--color-muted); }
+.text-danger   { color: #f87171; }
+.text-warning  { color: #fbbf24; }
+
+/* Quantidade sugerida — destaque */
+.qtd-sugerida {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    line-height: 1.2;
+}
+.qtd-sugerida strong { font-size: 1.3rem; color: var(--color-primary); }
+.qtd-sugerida small  { font-size: .72rem; color: var(--color-muted); }
+
+/* Link sutil para email */
+.link-subtle {
+    color: var(--color-muted);
+    text-decoration: none;
+    font-size: .875rem;
+}
+.link-subtle:hover { color: var(--color-primary); text-decoration: underline; }
+
+/* Link de navegação entre páginas (header) */
+.btn-link {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    padding: .5rem 1rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    color: var(--color-muted);
+    text-decoration: none;
+    font-size: .875rem;
+    transition: background .2s, color .2s;
+}
+.btn-link:hover {
+    background: var(--color-surface-2);
+    color: var(--color-text);
+}

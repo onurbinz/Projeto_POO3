@@ -1,0 +1,313 @@
+/* ==========================================================================
+   pdv.css — Estilos exclusivos do Ponto de Venda (pdv.xhtml)
+   Complementa o erp.css (variáveis reutilizadas via var(--...))
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   Layout principal do PDV: header + two-column grid
+   -------------------------------------------------------------------------- */
+.pdv-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1.25rem 1.5rem;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    margin-bottom: 1.25rem;
+}
+
+.pdv-title {
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: var(--color-text);
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+}
+.pdv-title i { color: var(--color-primary); }
+
+.pdv-header-right { display: flex; align-items: center; gap: 1rem; }
+
+.carrinho-badge {
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+    background: rgba(108,99,255,.15);
+    color: var(--color-primary);
+    border: 1px solid rgba(108,99,255,.35);
+    border-radius: 99px;
+    padding: .3rem .85rem;
+    font-size: .875rem;
+    font-weight: 600;
+}
+.badge-count {
+    background: var(--color-primary);
+    color: #fff;
+    border-radius: 99px;
+    padding: 0 .5rem;
+    font-size: .75rem;
+    min-width: 22px;
+    text-align: center;
+}
+
+/* Grid de duas colunas (esquerda estreita, direita larga) */
+.pdv-layout {
+    display: grid;
+    grid-template-columns: 340px 1fr;
+    gap: 1.25rem;
+    align-items: start;
+}
+
+/* --------------------------------------------------------------------------
+   Cards do PDV
+   -------------------------------------------------------------------------- */
+.pdv-card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    padding: 1.25rem;
+    margin-bottom: 1.25rem;
+}
+.pdv-card:last-child { margin-bottom: 0; }
+
+.pdv-card-titulo {
+    font-size: .95rem;
+    font-weight: 700;
+    color: var(--color-text);
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    padding-bottom: .75rem;
+    border-bottom: 1px solid var(--color-border);
+}
+.pdv-card-titulo i { color: var(--color-primary); }
+
+.pdv-card-carrinho { height: fit-content; }
+
+/* --------------------------------------------------------------------------
+   Campo de busca (autoComplete)
+   -------------------------------------------------------------------------- */
+.pdv-autocomplete .ui-autocomplete,
+.pdv-autocomplete { width: 100% !important; }
+
+.pdv-autocomplete .ui-autocomplete-panel .ui-autocomplete-item {
+    padding: .5rem .75rem !important;
+    border-bottom: 1px solid var(--color-border) !important;
+}
+.pdv-autocomplete .ui-autocomplete-panel .ui-autocomplete-item:hover {
+    background: rgba(108,99,255,.1) !important;
+}
+
+/* Spinner de quantidade */
+.pdv-spinner .ui-spinner-input { text-align: center; }
+
+/* --------------------------------------------------------------------------
+   Painel de informação do produto selecionado
+   -------------------------------------------------------------------------- */
+.produto-info-panel {
+    margin-top: .75rem;
+    padding: .75rem 1rem;
+    background: rgba(108,99,255,.08);
+    border: 1px solid rgba(108,99,255,.25);
+    border-radius: var(--radius);
+}
+.produto-info {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .5rem;
+    flex-wrap: wrap;
+}
+.produto-info-nome  { font-weight: 600; font-size: .9rem; }
+.produto-info-preco { color: var(--color-primary); font-weight: 700; font-size: 1rem; }
+
+/* --------------------------------------------------------------------------
+   Formas de pagamento
+   -------------------------------------------------------------------------- */
+.pagamento-opcoes {
+    display: flex;
+    flex-direction: column;
+    gap: .5rem;
+}
+.pagamento-opcao {
+    padding: .5rem .75rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: background .15s, border-color .15s;
+}
+.pagamento-opcao.ativo {
+    border-color: var(--color-primary);
+    background: rgba(108,99,255,.1);
+}
+.pagamento-opcao:hover { background: var(--color-surface-2); }
+
+/* --------------------------------------------------------------------------
+   Tabela do carrinho
+   -------------------------------------------------------------------------- */
+.pdv-table.ui-datatable table { font-size: .9rem; }
+
+.pdv-table .ui-datatable-data td {
+    padding: .65rem .85rem;
+    border-bottom: 1px solid var(--color-border);
+    vertical-align: middle;
+}
+
+/* Spinner inline na tabela do carrinho */
+.spinner-qtd .ui-spinner-input {
+    width: 60px !important;
+    text-align: center !important;
+    padding: .3rem .5rem !important;
+}
+
+/* --------------------------------------------------------------------------
+   Carrinho vazio (placeholder)
+   -------------------------------------------------------------------------- */
+.carrinho-vazio {
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: .5rem;
+    padding: 3rem 1rem;
+    color: var(--color-muted);
+    text-align: center;
+}
+.carrinho-vazio i { opacity: .35; }
+
+/* --------------------------------------------------------------------------
+   Badge de itens no título do carrinho
+   -------------------------------------------------------------------------- */
+.carrinho-count {
+    margin-left: auto;
+    background: var(--color-primary);
+    color: #fff;
+    border-radius: 99px;
+    padding: .1rem .55rem;
+    font-size: .75rem;
+    font-weight: 700;
+}
+
+/* --------------------------------------------------------------------------
+   Painel Total + Botões de Ação
+   -------------------------------------------------------------------------- */
+.painel-total {
+    border-top: 2px solid var(--color-border);
+    margin-top: 1rem;
+    padding-top: 1rem;
+}
+
+.total-linha {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: .75rem;
+}
+.total-label { font-size: .9rem; color: var(--color-muted); text-transform: uppercase; letter-spacing: .05em; }
+.total-valor { font-size: 1.75rem; font-weight: 700; color: var(--color-primary); }
+
+.pdv-acoes {
+    display: flex;
+    gap: .75rem;
+    flex-wrap: wrap;
+}
+
+/* Botão Finalizar — destaque máximo */
+.btn-finalizar.ui-button {
+    flex: 1;
+    background: linear-gradient(135deg, #22c55e, #16a34a) !important;
+    border: none !important;
+    color: #fff !important;
+    font-size: 1.05rem !important;
+    font-weight: 700 !important;
+    padding: .8rem 1.5rem !important;
+    border-radius: var(--radius) !important;
+    letter-spacing: .02em;
+    transition: opacity .2s, transform .1s, box-shadow .2s !important;
+}
+.btn-finalizar.ui-button:hover {
+    opacity: .9;
+    box-shadow: 0 4px 16px rgba(34,197,94,.4) !important;
+}
+.btn-finalizar.ui-button:active { transform: scale(.98) !important; }
+.btn-finalizar.ui-button.ui-state-disabled {
+    background: var(--color-surface-2) !important;
+    color: var(--color-muted) !important;
+    box-shadow: none !important;
+}
+
+/* Botão full-width para "Adicionar ao carrinho" */
+.btn-full.ui-button {
+    width: 100% !important;
+    justify-content: center;
+    margin-top: .5rem;
+}
+
+/* --------------------------------------------------------------------------
+   Dialog de Recibo (pós-checkout)
+   -------------------------------------------------------------------------- */
+.dialog-recibo .ui-dialog-titlebar {
+    background: linear-gradient(135deg, #22c55e, #16a34a) !important;
+    color: #fff !important;
+    font-size: 1.05rem !important;
+}
+
+.recibo {
+    font-size: .9rem;
+}
+.recibo-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    padding-bottom: .75rem;
+    border-bottom: 1px dashed var(--color-border);
+}
+.recibo-numero { font-size: 1.1rem; font-weight: 700; color: var(--color-text); }
+.recibo-data   { font-size: .8rem; color: var(--color-muted); }
+
+.recibo-itens {
+    margin-bottom: 1rem;
+    max-height: 200px;
+    overflow-y: auto;
+}
+.recibo-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: .35rem 0;
+    border-bottom: 1px solid var(--color-border);
+    font-size: .875rem;
+}
+.recibo-item-nome  { color: var(--color-text); }
+.recibo-item-valor { font-weight: 600; color: var(--color-text); }
+
+.recibo-total {
+    background: var(--color-surface-2);
+    border-radius: var(--radius);
+    padding: .75rem 1rem;
+}
+.recibo-total-linha {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: .3rem 0;
+    color: var(--color-muted);
+    font-size: .875rem;
+}
+.recibo-total-valor {
+    font-size: 1.1rem;
+    color: var(--color-text) !important;
+    border-top: 1px solid var(--color-border);
+    margin-top: .35rem;
+    padding-top: .6rem !important;
+}
+.recibo-total-valor strong { color: #4ade80; font-size: 1.3rem; }
+
+/* --------------------------------------------------------------------------
+   Responsividade básica (tela menor que 900px — single column)
+   -------------------------------------------------------------------------- */
+@media (max-width: 900px) {
+    .pdv-layout { grid-template-columns: 1fr; }
+}

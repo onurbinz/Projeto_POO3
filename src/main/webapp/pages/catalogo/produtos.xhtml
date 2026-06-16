@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:h="http://xmlns.jcp.org/jsf/html"
+      xmlns:f="http://xmlns.jcp.org/jsf/core"
+      xmlns:p="http://primefaces.org/ui">
+
+<h:head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Estoque e Produtos — ERP Barbershop</title>
+    <h:outputStylesheet library="css" name="erp.css"/>
+</h:head>
+
+<h:body>
+<h:form id="formProdutos">
+
+    <!-- Mensagens globais de sucesso/erro -->
+    <p:growl id="msgs" life="4000" showDetail="true" sticky="false"/>
+
+    <!-- ============================================================
+         CABEÇALHO
+         ============================================================ -->
+    <div class="page-header">
+        <h1 class="page-title">
+            <i class="fa fa-box"></i>
+            Estoque e Produtos
+        </h1>
+        <p:commandButton
+            id="btnNovoProduto"
+            value="Novo Produto"
+            icon="fa fa-plus"
+            styleClass="btn-primary"
+            actionListener="#{produtoBean.prepararCriar}"
+            update="dialogCriar"
+            oncomplete="PF('dlgCriar').show()"/>
+    </div>
+
+    <!-- ============================================================
+         PAINEL DE ALERTA — ESTOQUE BAIXO
+         Renderizado condicionalmente: só aparece se houver produtos
+         com quantidade <= quantidade mínima configurada.
+         O ProdutoBean.isHaEstoqueBaixo() faz essa verificação.
+         ============================================================ -->
+    <p:panel
+        id="painelAlertaEstoque"
+        styleClass="alerta-estoque"
+        rendered="#{produtoBean.haEstoqueBaixo}">
+
+        <div class="alerta-cabecalho">
+            <i class="fa fa-exclamation-triangle"></i>
+            <strong>Alerta de Estoque Baixo</strong>
+            — #{produtoBean.produtosEstoqueBaixo.size()} produto(s) precisam de reposição
+        </div>
+
+        <!-- Lista compacta dos produtos críticos -->
+        <ul class="alerta-lista">
+            <ui:repeat value="#{produtoBean.produtosEstoqueBaixo}" var="alerta"
+                       xmlns:ui="http://xmlns.jcp.org/jsf/facelets">
+                <li>
+                    <span class="alerta-nome">#{alerta.nome}</span>
+                    <span class="alerta-estoque">
+                        Estoque: <strong>#{alerta.quantidadeEstoque}</strong>
+                        / Mínimo: <strong>#{alerta.quantidadeMinima}</strong>
+                    </span>
+                </li>
+            </ui:repeat>
+        </ul>
+    </p:panel>
+
+    <!-- ============================================================
+         TABELA PRINCIPAL DE PRODUTOS
+         Exibe apenas produtos com ativo = true (soft delete oculta).
+         - Paginação: 10 por página
+         - Filtro: por nome, categoria
+         - Ordenação: clicando nos cabeçalhos
+         ============================================================ -->
+    <p:dataTable
+        id="tabelaProdutos"
+        value="#{produtoBean.produtos}"
+        var="p"
+        styleClass="erp-table"
+        emptyMessage="Nenhum produto ativo no catálogo."
+        paginator="true"
+        rows="10"
+        paginatorTemplate="{CurrentPageReport} {FirstPageLink} {PreviousPageLink}
+                           {PageLinks} {NextPageLink} {LastPageLink}"
+        currentPageReportTemplate="Exibindo {startRecord}–{endRecord} de {totalRecords}"
+        rowStyleClass="#{p.estoqueBaixo ? 'row-alerta' : ''}">
+
+        <!-- Coluna: Nome -->
+        <p:column headerText="Produto" sortBy="#{p.nome}"
+                  filterBy="#{p.nome}" filterMatchMode="contains">
+            <h:outputText value="#{p.nome}"/>
+            <!-- Ícone de aviso inline se estoque baixo -->
+            <p:tooltip value="Estoque abaixo do mínimo!" rendered="#{p.estoqueBaixo}"/>
+            <i class="fa fa-warning estoque-icon"
+               style="color: #f59e0b; margin-left: 6px;"
+               title="Estoque baixo"
+               rendered="#{p.estoqueBaixo}"/>
+        </p:column>
+
+        <!-- Coluna: Categoria -->
+        <p:column headerText="Categoria" sortBy="#{p.categoria.nome}"
+                  filterBy="#{p.categoria.nome}" filterMatchMode="contains">
+            <h:outputText value="#{produtoBean.nomeCategoria(p)}"/>
+        </p:column>
+
+        <!-- Coluna: Preço -->
+        <p:column headerText="Preço" sortBy="#{p.preco}" style="width: 110px;">
+            <h:outputText value="#{p.preco}">
+                <f:convertNumber type="currency" currencySymbol="R$ "
+                                 minFractionDigits="2" maxFractionDigits="2"
+                                 locale="pt_BR"/>
+            </h:outputText>
+        </p:column>
+
+        <!-- Coluna: Estoque -->
+        <p:column headerText="Estoque" sortBy="#{p.quantidadeEstoque}"
+                  style="width: 100px; text-align: center;">
+            <!-- Serviços não têm estoque — exibe traço -->
+            <h:outputText value="#{p.quantidadeEstoque != null ? p.quantidadeEstoque : '—'}"/>
+        </p:column>
+
+        <!-- Coluna: Mínimo -->
+        <p:column headerText="Mínimo" sortBy="#{p.quantidadeMinima}"
+                  style="width: 90px; text-align: center;">
+            <h:outputText value="#{p.quantidadeMinima != null ? p.quantidadeMinima : '—'}"/>
+        </p:column>
+
+        <!-- Coluna: Fornecedor -->
+        <p:column headerText="Fornecedor" sortBy="#{p.fornecedor.nome}">
+            <h:outputText value="#{produtoBean.nomeFornecedor(p)}"/>
+        </p:column>
+
+        <!-- Coluna: Tipo (Produto físico ou Serviço) -->
+        <p:column headerText="Tipo" style="width: 90px; text-align: center;">
+            <p:tag
+                value="#{p.servico ? 'Serviço' : 'Produto'}"
+                severity="#{p.servico ? 'info' : 'success'}"/>
+        </p:column>
+
+        <!-- Coluna: Ações -->
+        <p:column headerText="Ações" style="width: 110px; text-align: center;">
+
+            <!-- Editar -->
+            <p:commandButton
+                icon="fa fa-edit"
+                title="Editar produto"
+                styleClass="btn-icon btn-edit"
+                actionListener="#{produtoBean.prepararEditar(p)}"
+                update="dialogEditar"
+                oncomplete="PF('dlgEditar').show()"/>
+
+            <!-- Excluir (soft delete) — pede confirmação antes -->
+            <p:commandButton
+                icon="fa fa-trash"
+                title="Excluir produto"
+                styleClass="btn-icon btn-danger"
+                actionListener="#{produtoBean.excluir(p)}"
+                update="tabelaProdutos painelAlertaEstoque msgs"
+                onclick="return confirm('Excluir o produto \'#{p.nome}\'?\nEle será removido do catálogo mas o histórico de vendas será mantido.')"/>
+
+        </p:column>
+    </p:dataTable>
+
+
+    <!-- ============================================================
+         DIÁLOGO: CRIAR PRODUTO
+         ============================================================ -->
+    <p:dialog
+        id="dialogCriar"
+        header="Novo Produto"
+        widgetVar="dlgCriar"
+        modal="true"
+        resizable="false"
+        styleClass="erp-dialog"
+        style="width: 520px;">
+
+        <p:outputPanel id="panelCriar">
+            <div class="form-grid form-grid-2col">
+
+                <!-- Nome -->
+                <div class="form-group form-group-full">
+                    <label for="criarNome">Nome <span class="required">*</span></label>
+                    <p:inputText id="criarNome"
+                                 value="#{produtoBean.produtoSelecionado.nome}"
+                                 required="true" requiredMessage="Nome obrigatório."
+                                 maxlength="150" styleClass="form-input"
+                                 placeholder="Ex: Pomada Matte Black"/>
+                </div>
+
+                <!-- Descrição -->
+                <div class="form-group form-group-full">
+                    <label for="criarDesc">Descrição</label>
+                    <p:inputTextarea id="criarDesc"
+                                     value="#{produtoBean.produtoSelecionado.descricao}"
+                                     rows="2" maxlength="500" styleClass="form-input"
+                                     placeholder="Descrição opcional do produto ou serviço"/>
+                </div>
+
+                <!-- Preço -->
+                <div class="form-group">
+                    <label for="criarPreco">Preço (R$) <span class="required">*</span></label>
+                    <p:inputNumber id="criarPreco"
+                                   value="#{produtoBean.produtoSelecionado.preco}"
+                                   required="true" requiredMessage="Preço obrigatório."
+                                   symbol="R$ " symbolLocation="prefix"
+                                   decimalSeparator="," thousandSeparator="."
+                                   minValue="0.01" styleClass="form-input"/>
+                </div>
+
+                <!-- Categoria -->
+                <div class="form-group">
+                    <label for="criarCat">Categoria <span class="required">*</span></label>
+                    <p:selectOneMenu id="criarCat"
+                                     value="#{produtoBean.produtoSelecionado.categoria}"
+                                     converter="categoriaConverter"
+                                     required="true" requiredMessage="Categoria obrigatória."
+                                     styleClass="form-select">
+                        <f:selectItem itemLabel="— Selecione —" itemValue=""
+                                      noSelectionOption="true"/>
+                        <f:selectItems value="#{produtoBean.categorias}"
+                                       var="cat" itemLabel="#{cat.nome}" itemValue="#{cat}"/>
+                    </p:selectOneMenu>
+                </div>
+
+                <!-- Estoque Atual -->
+                <div class="form-group">
+                    <label for="criarEstoque">
+                        Estoque atual
+                        <small class="hint">(vazio = serviço)</small>
+                    </label>
+                    <p:inputText id="criarEstoque"
+                                 value="#{produtoBean.produtoSelecionado.quantidadeEstoque}"
+                                 styleClass="form-input" placeholder="Ex: 50">
+                        <f:convertNumber integerOnly="true"/>
+                    </p:inputText>
+                </div>
+
+                <!-- Estoque Mínimo -->
+                <div class="form-group">
+                    <label for="criarMinimo">Estoque mínimo</label>
+                    <p:inputText id="criarMinimo"
+                                 value="#{produtoBean.produtoSelecionado.quantidadeMinima}"
+                                 styleClass="form-input" placeholder="Ex: 10">
+                        <f:convertNumber integerOnly="true"/>
+                    </p:inputText>
+                </div>
+
+                <!-- Fornecedor -->
+                <div class="form-group form-group-full">
+                    <label for="criarForn">
+                        Fornecedor
+                        <small class="hint">(opcional para serviços)</small>
+                    </label>
+                    <p:selectOneMenu id="criarForn"
+                                     value="#{produtoBean.produtoSelecionado.fornecedor}"
+                                     converter="fornecedorConverter"
+                                     styleClass="form-select">
+                        <f:selectItem itemLabel="— Nenhum (serviço interno) —" itemValue=""/>
+                        <f:selectItems value="#{produtoBean.fornecedores}"
+                                       var="forn" itemLabel="#{forn.nome}" itemValue="#{forn}"/>
+                    </p:selectOneMenu>
+                </div>
+
+            </div>
+        </p:outputPanel>
+
+        <f:facet name="footer">
+            <div class="dialog-footer">
+                <p:commandButton
+                    value="Salvar"
+                    icon="fa fa-save"
+                    styleClass="btn-primary"
+                    action="#{produtoBean.salvar}"
+                    update="panelCriar tabelaProdutos painelAlertaEstoque msgs"
+                    oncomplete="if (!args.validationFailed) PF('dlgCriar').hide()"/>
+                <p:commandButton
+                    value="Cancelar"
+                    icon="fa fa-times"
+                    styleClass="btn-secondary"
+                    immediate="true"
+                    onclick="PF('dlgCriar').hide(); return false;"/>
+            </div>
+        </f:facet>
+    </p:dialog>
+
+
+    <!-- ============================================================
+         DIÁLOGO: EDITAR PRODUTO
+         Idêntico ao de criar, mas pré-populado com os dados atuais.
+         ============================================================ -->
+    <p:dialog
+        id="dialogEditar"
+        header="Editar Produto"
+        widgetVar="dlgEditar"
+        modal="true"
+        resizable="false"
+        styleClass="erp-dialog"
+        style="width: 520px;">
+
+        <p:outputPanel id="panelEditar">
+            <div class="form-grid form-grid-2col">
+
+                <div class="form-group form-group-full">
+                    <label for="editarNome">Nome <span class="required">*</span></label>
+                    <p:inputText id="editarNome"
+                                 value="#{produtoBean.produtoSelecionado.nome}"
+                                 required="true" requiredMessage="Nome obrigatório."
+                                 maxlength="150" styleClass="form-input"/>
+                </div>
+
+                <div class="form-group form-group-full">
+                    <label for="editarDesc">Descrição</label>
+                    <p:inputTextarea id="editarDesc"
+                                     value="#{produtoBean.produtoSelecionado.descricao}"
+                                     rows="2" maxlength="500" styleClass="form-input"/>
+                </div>
+
+                <div class="form-group">
+                    <label for="editarPreco">Preço (R$) <span class="required">*</span></label>
+                    <p:inputNumber id="editarPreco"
+                                   value="#{produtoBean.produtoSelecionado.preco}"
+                                   required="true" requiredMessage="Preço obrigatório."
+                                   symbol="R$ " symbolLocation="prefix"
+                                   decimalSeparator="," thousandSeparator="."
+                                   minValue="0.01" styleClass="form-input"/>
+                </div>
+
+                <div class="form-group">
+                    <label for="editarCat">Categoria <span class="required">*</span></label>
+                    <p:selectOneMenu id="editarCat"
+                                     value="#{produtoBean.produtoSelecionado.categoria}"
+                                     converter="categoriaConverter"
+                                     required="true" requiredMessage="Categoria obrigatória."
+                                     styleClass="form-select">
+                        <f:selectItems value="#{produtoBean.categorias}"
+                                       var="cat" itemLabel="#{cat.nome}" itemValue="#{cat}"/>
+                    </p:selectOneMenu>
+                </div>
+
+                <div class="form-group">
+                    <label for="editarEstoque">Estoque atual</label>
+                    <p:inputText id="editarEstoque"
+                                 value="#{produtoBean.produtoSelecionado.quantidadeEstoque}"
+                                 styleClass="form-input">
+                        <f:convertNumber integerOnly="true"/>
+                    </p:inputText>
+                </div>
+
+                <div class="form-group">
+                    <label for="editarMinimo">Estoque mínimo</label>
+                    <p:inputText id="editarMinimo"
+                                 value="#{produtoBean.produtoSelecionado.quantidadeMinima}"
+                                 styleClass="form-input">
+                        <f:convertNumber integerOnly="true"/>
+                    </p:inputText>
+                </div>
+
+                <div class="form-group form-group-full">
+                    <label for="editarForn">Fornecedor</label>
+                    <p:selectOneMenu id="editarForn"
+                                     value="#{produtoBean.produtoSelecionado.fornecedor}"
+                                     converter="fornecedorConverter"
+                                     styleClass="form-select">
+                        <f:selectItem itemLabel="— Nenhum (serviço interno) —" itemValue=""/>
+                        <f:selectItems value="#{produtoBean.fornecedores}"
+                                       var="forn" itemLabel="#{forn.nome}" itemValue="#{forn}"/>
+                    </p:selectOneMenu>
+                </div>
+
+            </div>
+        </p:outputPanel>
+
+        <f:facet name="footer">
+            <div class="dialog-footer">
+                <p:commandButton
+                    value="Salvar alterações"
+                    icon="fa fa-save"
+                    styleClass="btn-primary"
+                    action="#{produtoBean.editar}"
+                    update="panelEditar tabelaProdutos painelAlertaEstoque msgs"
+                    oncomplete="if (!args.validationFailed) PF('dlgEditar').hide()"/>
+                <p:commandButton
+                    value="Cancelar"
+                    icon="fa fa-times"
+                    styleClass="btn-secondary"
+                    immediate="true"
+                    onclick="PF('dlgEditar').hide(); return false;"/>
+            </div>
+        </f:facet>
+    </p:dialog>
+
+</h:form>
+</h:body>
+</html>

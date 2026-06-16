@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:h="http://xmlns.jcp.org/jsf/html"
+      xmlns:f="http://xmlns.jcp.org/jsf/core"
+      xmlns:p="http://primefaces.org/ui">
+
+<h:head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Fornecedores — ERP Barbershop</title>
+    <h:outputStylesheet library="css" name="erp.css"/>
+</h:head>
+
+<h:body>
+<h:form id="formFornecedores">
+
+    <p:growl id="msgs" life="4000" showDetail="true" sticky="false"/>
+
+    <!-- ============================================================
+         CABEÇALHO
+         ============================================================ -->
+    <div class="page-header">
+        <h1 class="page-title">
+            <i class="fa fa-truck"></i>
+            Fornecedores
+        </h1>
+        <div style="display:flex; gap:.75rem; align-items:center;">
+            <h:link outcome="/pages/compras/sugestao_compras" styleClass="btn-link">
+                <i class="fa fa-shopping-cart"></i> Sugestões de Compra
+            </h:link>
+            <p:commandButton
+                id="btnNovoFornecedor"
+                value="Novo Fornecedor"
+                icon="fa fa-plus"
+                styleClass="btn-primary"
+                actionListener="#{fornecedorBean.prepararCriar}"
+                update="dialogCriar"
+                oncomplete="PF('dlgCriar').show()"/>
+        </div>
+    </div>
+
+    <!-- ============================================================
+         TABELA DE FORNECEDORES
+         ============================================================ -->
+    <p:dataTable
+        id="tabelaFornecedores"
+        value="#{fornecedorBean.fornecedores}"
+        var="f"
+        styleClass="erp-table"
+        emptyMessage="Nenhum fornecedor cadastrado."
+        paginator="true"
+        rows="10"
+        paginatorTemplate="{CurrentPageReport} {FirstPageLink} {PreviousPageLink}
+                           {PageLinks} {NextPageLink} {LastPageLink}"
+        currentPageReportTemplate="Exibindo {startRecord}–{endRecord} de {totalRecords}">
+
+        <!-- Nome -->
+        <p:column headerText="Fornecedor" sortBy="#{f.nome}"
+                  filterBy="#{f.nome}" filterMatchMode="contains">
+            <h:outputText value="#{f.nome}"/>
+        </p:column>
+
+        <!-- CNPJ — exibido formatado (12.345.678/0001-90) -->
+        <p:column headerText="CNPJ" style="width: 160px;">
+            <h:outputText value="#{fornecedorBean.cnpjFormatado(f)}"/>
+        </p:column>
+
+        <!-- Email de contato -->
+        <p:column headerText="E-mail" sortBy="#{f.emailContato}"
+                  filterBy="#{f.emailContato}" filterMatchMode="contains">
+            <h:outputLink value="mailto:#{f.emailContato}" styleClass="link-subtle">
+                #{f.emailContato}
+            </h:outputLink>
+        </p:column>
+
+        <!-- Telefone -->
+        <p:column headerText="Telefone" style="width: 130px;">
+            <h:outputText value="#{f.telefone != null ? f.telefone : '—'}"/>
+        </p:column>
+
+        <!-- Ações -->
+        <p:column headerText="Ações" style="width: 100px; text-align: center;">
+            <p:commandButton
+                icon="fa fa-edit"
+                title="Editar fornecedor"
+                styleClass="btn-icon btn-edit"
+                actionListener="#{fornecedorBean.prepararEditar(f)}"
+                update="dialogEditar"
+                oncomplete="PF('dlgEditar').show()"/>
+
+            <p:commandButton
+                icon="fa fa-trash"
+                title="Remover fornecedor"
+                styleClass="btn-icon btn-danger"
+                actionListener="#{fornecedorBean.excluir(f)}"
+                update="tabelaFornecedores msgs"
+                onclick="return confirm('Remover o fornecedor \'#{f.nome}\'?')"/>
+        </p:column>
+
+    </p:dataTable>
+
+    <!-- ============================================================
+         DIÁLOGO: CRIAR FORNECEDOR
+         ============================================================ -->
+    <p:dialog id="dialogCriar" header="Novo Fornecedor" widgetVar="dlgCriar"
+              modal="true" resizable="false" styleClass="erp-dialog" style="width: 480px;">
+
+        <p:outputPanel id="panelCriar">
+            <div class="form-grid">
+
+                <div class="form-group">
+                    <label for="criarNome">Razão Social / Nome <span class="required">*</span></label>
+                    <p:inputText id="criarNome"
+                                 value="#{fornecedorBean.fornecedorSelecionado.nome}"
+                                 required="true" requiredMessage="Nome obrigatório."
+                                 maxlength="200" styleClass="form-input"
+                                 placeholder="Ex: Distribuidora Barber Pro"/>
+                </div>
+
+                <div class="form-group">
+                    <label for="criarCnpj">
+                        CNPJ <span class="required">*</span>
+                        <small class="hint">(apenas números)</small>
+                    </label>
+                    <p:inputMask id="criarCnpj"
+                                 value="#{fornecedorBean.fornecedorSelecionado.cnpj}"
+                                 mask="99.999.999/9999-99"
+                                 required="true" requiredMessage="CNPJ obrigatório."
+                                 styleClass="form-input"
+                                 placeholder="12.345.678/0001-90"/>
+                </div>
+
+                <div class="form-group">
+                    <label for="criarEmail">E-mail de contato <span class="required">*</span></label>
+                    <p:inputText id="criarEmail"
+                                 value="#{fornecedorBean.fornecedorSelecionado.emailContato}"
+                                 required="true" requiredMessage="E-mail obrigatório."
+                                 maxlength="200" styleClass="form-input"
+                                 placeholder="compras@fornecedor.com">
+                        <f:validateRegex pattern="^[^\s@]+@[^\s@]+\.[^\s@]+$"/>
+                    </p:inputText>
+                </div>
+
+                <div class="form-group">
+                    <label for="criarTel">Telefone</label>
+                    <p:inputMask id="criarTel"
+                                 value="#{fornecedorBean.fornecedorSelecionado.telefone}"
+                                 mask="(99) 99999-9999"
+                                 styleClass="form-input"
+                                 placeholder="(21) 99999-0000"/>
+                </div>
+
+            </div>
+        </p:outputPanel>
+
+        <f:facet name="footer">
+            <div class="dialog-footer">
+                <p:commandButton value="Salvar" icon="fa fa-save" styleClass="btn-primary"
+                                 action="#{fornecedorBean.salvar}"
+                                 update="panelCriar tabelaFornecedores msgs"
+                                 oncomplete="if (!args.validationFailed) PF('dlgCriar').hide()"/>
+                <p:commandButton value="Cancelar" icon="fa fa-times" styleClass="btn-secondary"
+                                 immediate="true" onclick="PF('dlgCriar').hide(); return false;"/>
+            </div>
+        </f:facet>
+    </p:dialog>
+
+    <!-- ============================================================
+         DIÁLOGO: EDITAR FORNECEDOR
+         ============================================================ -->
+    <p:dialog id="dialogEditar" header="Editar Fornecedor" widgetVar="dlgEditar"
+              modal="true" resizable="false" styleClass="erp-dialog" style="width: 480px;">
+
+        <p:outputPanel id="panelEditar">
+            <div class="form-grid">
+
+                <div class="form-group">
+                    <label for="editarNome">Razão Social / Nome <span class="required">*</span></label>
+                    <p:inputText id="editarNome"
+                                 value="#{fornecedorBean.fornecedorSelecionado.nome}"
+                                 required="true" requiredMessage="Nome obrigatório."
+                                 maxlength="200" styleClass="form-input"/>
+                </div>
+
+                <div class="form-group">
+                    <label for="editarCnpj">CNPJ <span class="required">*</span></label>
+                    <p:inputMask id="editarCnpj"
+                                 value="#{fornecedorBean.fornecedorSelecionado.cnpj}"
+                                 mask="99.999.999/9999-99"
+                                 required="true" requiredMessage="CNPJ obrigatório."
+                                 styleClass="form-input"/>
+                </div>
+
+                <div class="form-group">
+                    <label for="editarEmail">E-mail de contato <span class="required">*</span></label>
+                    <p:inputText id="editarEmail"
+                                 value="#{fornecedorBean.fornecedorSelecionado.emailContato}"
+                                 required="true" requiredMessage="E-mail obrigatório."
+                                 maxlength="200" styleClass="form-input"/>
+                </div>
+
+                <div class="form-group">
+                    <label for="editarTel">Telefone</label>
+                    <p:inputMask id="editarTel"
+                                 value="#{fornecedorBean.fornecedorSelecionado.telefone}"
+                                 mask="(99) 99999-9999"
+                                 styleClass="form-input"/>
+                </div>
+
+            </div>
+        </p:outputPanel>
+
+        <f:facet name="footer">
+            <div class="dialog-footer">
+                <p:commandButton value="Salvar alterações" icon="fa fa-save" styleClass="btn-primary"
+                                 action="#{fornecedorBean.editar}"
+                                 update="panelEditar tabelaFornecedores msgs"
+                                 oncomplete="if (!args.validationFailed) PF('dlgEditar').hide()"/>
+                <p:commandButton value="Cancelar" icon="fa fa-times" styleClass="btn-secondary"
+                                 immediate="true" onclick="PF('dlgEditar').hide(); return false;"/>
+            </div>
+        </f:facet>
+    </p:dialog>
+
+</h:form>
+</h:body>
+</html>

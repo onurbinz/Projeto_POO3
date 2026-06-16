@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:h="http://xmlns.jcp.org/jsf/html"
+      xmlns:f="http://xmlns.jcp.org/jsf/core"
+      xmlns:p="http://primefaces.org/ui"
+      xmlns:ui="http://xmlns.jcp.org/jsf/facelets">
+
+<h:head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Sugestões de Compra — ERP Barbershop</title>
+    <h:outputStylesheet library="css" name="erp.css"/>
+</h:head>
+
+<h:body>
+<h:form id="formSugestoes">
+
+    <!-- ============================================================
+         CABEÇALHO com badge de produtos críticos (estoque zerado)
+         ============================================================ -->
+    <div class="page-header">
+        <div style="display:flex; align-items:center; gap: 1rem;">
+            <h1 class="page-title">
+                <i class="fa fa-shopping-cart"></i>
+                Sugestões de Compra
+            </h1>
+            <!-- Badge vermelho: conta produtos com estoque = 0 -->
+            <span class="badge-criticos"
+                  style="display: #{compraBean.totalCriticos > 0 ? 'inline-flex' : 'none'}">
+                #{compraBean.totalCriticos} CRÍTICO(S)
+            </span>
+        </div>
+        <div style="display:flex; gap:.75rem; align-items:center;">
+            <h:link outcome="/pages/compras/fornecedores" styleClass="btn-link">
+                <i class="fa fa-truck"></i> Fornecedores
+            </h:link>
+            <!-- Atualizar a análise sem recarregar a página (AJAX) -->
+            <p:commandButton
+                id="btnAtualizar"
+                value="Atualizar análise"
+                icon="fa fa-refresh"
+                styleClass="btn-secondary"
+                action="#{compraBean.atualizar}"
+                update="tabelaSugestoes painelVazio msgs"
+                title="Recalcula o consumo e recarrega a lista de sugestões"/>
+        </div>
+    </div>
+
+    <!-- ============================================================
+         PAINEL: Nenhuma sugestão (todos os estoques ok)
+         Renderizado apenas quando não há produto crítico.
+         ============================================================ -->
+    <p:panel id="painelVazio"
+             styleClass="painel-ok"
+             rendered="#{not compraBean.haSugestoes}">
+        <div class="painel-ok-content">
+            <i class="fa fa-check-circle fa-2x"></i>
+            <strong>Estoque em dia!</strong>
+            <span>Nenhum produto com estoque abaixo do mínimo no momento.</span>
+        </div>
+    </p:panel>
+
+    <!-- ============================================================
+         TABELA DE SUGESTÕES DE COMPRA
+         Uma linha por produto crítico, ordenada por urgência.
+         ============================================================ -->
+    <p:dataTable
+        id="tabelaSugestoes"
+        value="#{compraBean.sugestoes}"
+        var="s"
+        styleClass="erp-table"
+        emptyMessage="Nenhuma sugestão de compra no momento."
+        rendered="#{compraBean.haSugestoes}"
+        paginator="true"
+        rows="15"
+        paginatorTemplate="{CurrentPageReport} {FirstPageLink} {PreviousPageLink}
+                           {PageLinks} {NextPageLink} {LastPageLink}"
+        currentPageReportTemplate="Exibindo {startRecord}–{endRecord} de {totalRecords}"
+        rowStyleClass="#{s.estoqueZerado ? 'row-critico' : 'row-alerta'}">
+
+        <!-- Urgência: badge CRÍTICO (zerado) ou BAIXO -->
+        <p:column headerText="Urgência" style="width: 100px; text-align: center;"
+                  sortBy="#{s.estoqueZerado}">
+            <p:tag value="#{s.rotuloUrgencia}" severity="#{s.severidadeUrgencia}"/>
+        </p:column>
+
+        <!-- Produto -->
+        <p:column headerText="Produto" sortBy="#{s.nomeProduto}"
+                  filterBy="#{s.nomeProduto}" filterMatchMode="contains">
+            <h:outputText value="#{s.nomeProduto}"/>
+        </p:column>
+
+        <!-- Fornecedor + e-mail de contato direto -->
+        <p:column headerText="Fornecedor" sortBy="#{s.nomeFornecedor}">
+            <div>
+                <strong>#{s.nomeFornecedor}</strong>
+            </div>
+            <div style="font-size:.8rem; color: var(--color-muted);">
+                <h:outputLink value="mailto:#{s.emailFornecedor}" styleClass="link-subtle"
+                              rendered="#{s.emailFornecedor != '—'}">
+                    #{s.emailFornecedor}
+                </h:outputLink>
+                <h:outputText value="—" rendered="#{s.emailFornecedor == '—'}"/>
+            </div>
+        </p:column>
+
+        <!-- Estoque atual vs mínimo com barra visual -->
+        <p:column headerText="Estoque / Mínimo" style="width: 150px; text-align: center;">
+            <div class="estoque-gauge">
+                <span class="estoque-atual #{s.estoqueZerado ? 'text-danger' : 'text-warning'}">
+                    #{s.estoqueAtual}
+                </span>
+                <span class="estoque-sep">/</span>
+                <span class="estoque-min">#{s.estoqueMinimo}</span>
+            </div>
+        </p:column>
+
+        <!-- Vendidos nos últimos 30 dias -->
+        <p:column headerText="Vendidos (30d)" style="width: 120px; text-align: center;"
+                  sortBy="#{s.vendidosUltimos30Dias}">
+            <h:outputText value="#{s.vendidosUltimos30Dias}"/>
+        </p:column>
+
+        <!-- Média de consumo diário -->
+        <p:column headerText="Média/dia" style="width: 100px; text-align: center;"
+                  sortBy="#{s.mediaDiariaConsumo}">
+            <h:outputText value="#{s.mediaDiariaConsumo}">
+                <f:convertNumber minFractionDigits="2" maxFractionDigits="2" locale="pt_BR"/>
+            </h:outputText>
+        </p:column>
+
+        <!--
+            QUANTIDADE SUGERIDA — destaque visual (coluna mais importante)
+            Calculada pelo CompraService com base no consumo histórico.
+        -->
+        <p:column headerText="Sugestão de Pedido" style="width: 150px; text-align: center;"
+                  sortBy="#{s.quantidadeSugerida}">
+            <div class="qtd-sugerida">
+                <strong>#{s.quantidadeSugerida}</strong>
+                <small>unidades</small>
+            </div>
+        </p:column>
+
+    </p:dataTable>
+
+    <!-- ============================================================
+         RODAPÉ INFORMATIVO — explica como os valores são calculados
+         ============================================================ -->
+    <p:panel styleClass="painel-info" rendered="#{compraBean.haSugestoes}">
+        <p class="info-texto">
+            <i class="fa fa-info-circle"></i>
+            <strong>Como a sugestão é calculada:</strong>
+            A coluna "Sugestão de Pedido" representa a quantidade recomendada para
+            reabastecer o estoque com base na <strong>média de consumo dos últimos 30 dias</strong>
+            registrada em vendas fechadas. O valor mínimo sugerido é sempre
+            <strong>2× o estoque mínimo</strong> configurado no produto.
+        </p>
+    </p:panel>
+
+</h:form>
+</h:body>
+</html>

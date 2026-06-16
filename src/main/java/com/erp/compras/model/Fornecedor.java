@@ -89,6 +89,14 @@ public class Fornecedor implements Serializable {
     @Column(name = "telefone", length = 20)
     private String telefone;
 
+    /**
+     * Flag de exclusão lógica (soft delete).
+     * {@code true} = fornecedor ativo e visível no sistema.
+     * {@code false} = inativo; preservado no banco por integridade referencial.
+     */
+    @Column(name = "ativo", nullable = false)
+    private boolean ativo = true;
+
     // ==========================================================
     // Relacionamentos
     // ==========================================================
@@ -183,6 +191,14 @@ public class Fornecedor implements Serializable {
 
     public void setTelefone(String telefone) {
         this.telefone = telefone;
+    }
+
+    public boolean isAtivo() {
+        return ativo;
+    }
+
+    public void setAtivo(boolean ativo) {
+        this.ativo = ativo;
     }
 
     public List<Produto> getProdutos() {

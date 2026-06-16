@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:h="http://xmlns.jcp.org/jsf/html"
+      xmlns:f="http://xmlns.jcp.org/jsf/core"
+      xmlns:p="http://primefaces.org/ui"
+      xmlns:ui="http://xmlns.jcp.org/jsf/facelets">
+
+<h:head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Gestão de Usuários — ERP Barbershop</title>
+    <h:outputStylesheet library="css" name="erp.css"/>
+</h:head>
+
+<h:body>
+
+    <!-- ============================================================ -->
+    <!-- Formulário raiz — obrigatório para p:commandButton funcionar -->
+    <!-- ============================================================ -->
+    <h:form id="formUsuarios">
+
+        <!-- Mensagens globais de feedback (sucesso / erro) -->
+        <p:growl id="msgs" life="4000" showDetail="true" sticky="false"/>
+
+        <!-- ============================================================ -->
+        <!-- Cabeçalho da página                                          -->
+        <!-- ============================================================ -->
+        <div class="page-header">
+            <h1 class="page-title">
+                <i class="fa fa-users"></i>
+                Gestão de Usuários
+            </h1>
+            <p:commandButton
+                id="btnNovoUsuario"
+                value="Novo Usuário"
+                icon="fa fa-plus"
+                styleClass="btn-primary"
+                actionListener="#{usuarioBean.prepararCriar}"
+                update="dialogCriar"
+                oncomplete="PF('dlgCriar').show()"/>
+        </div>
+
+        <!-- ============================================================ -->
+        <!-- Tabela principal de usuários                                 -->
+        <!-- ============================================================ -->
+        <p:dataTable
+            id="tabelaUsuarios"
+            value="#{usuarioBean.usuarios}"
+            var="u"
+            styleClass="erp-table"
+            emptyMessage="Nenhum usuário cadastrado."
+            paginator="true"
+            rows="10"
+            paginatorTemplate="{CurrentPageReport} {FirstPageLink} {PreviousPageLink}
+                               {PageLinks} {NextPageLink} {LastPageLink}"
+            currentPageReportTemplate="Exibindo {startRecord}–{endRecord} de {totalRecords}"
+            rowStyleClass="#{u.ativo ? '' : 'row-inativo'}">
+
+            <!-- Coluna: Nome -->
+            <p:column headerText="Nome" sortBy="#{u.nome}" filterBy="#{u.nome}"
+                      filterMatchMode="contains">
+                <h:outputText value="#{u.nome}"/>
+            </p:column>
+
+            <!-- Coluna: E-mail -->
+            <p:column headerText="E-mail" sortBy="#{u.email}" filterBy="#{u.email}"
+                      filterMatchMode="contains">
+                <h:outputText value="#{u.email}"/>
+            </p:column>
+
+            <!-- Coluna: Perfil -->
+            <p:column headerText="Perfil" sortBy="#{usuarioBean.labelPapel(u)}">
+                <p:tag
+                    value="#{usuarioBean.labelPapel(u)}"
+                    severity="#{usuarioBean.labelPapel(u) == 'Administrador' ? 'danger' : 'info'}"/>
+            </p:column>
+
+            <!-- Coluna: Status -->
+            <p:column headerText="Status" style="width: 100px; text-align: center;">
+                <p:tag
+                    value="#{u.ativo ? 'Ativo' : 'Inativo'}"
+                    severity="#{u.ativo ? 'success' : 'warning'}"/>
+            </p:column>
+
+            <!-- Coluna: Ações -->
+            <p:column headerText="Ações" style="width: 150px; text-align: center;">
+
+                <!-- Botão Editar -->
+                <p:commandButton
+                    icon="fa fa-edit"
+                    title="Editar usuário"
+                    styleClass="btn-icon btn-edit"
+                    actionListener="#{usuarioBean.prepararEditar(u)}"
+                    update="dialogEditar"
+                    oncomplete="PF('dlgEditar').show()"/>
+
+                <!-- Botão Inativar — só visível para usuários ativos -->
+                <p:commandButton
+                    icon="fa fa-ban"
+                    title="Inativar usuário"
+                    styleClass="btn-icon btn-danger"
+                    rendered="#{u.ativo}"
+                    actionListener="#{usuarioBean.inativar(u)}"
+                    update="tabelaUsuarios msgs"
+                    onclick="return confirm('Inativar o usuário \'#{u.nome}\'? Esta ação pode ser revertida manualmente no banco.')"/>
+
+            </p:column>
+        </p:dataTable>
+
+        <!-- ============================================================ -->
+        <!-- DIÁLOGO: Criar Novo Usuário                                  -->
+        <!-- ============================================================ -->
+        <p:dialog
+            id="dialogCriar"
+            header="Novo Usuário"
+            widgetVar="dlgCriar"
+            modal="true"
+            resizable="false"
+            styleClass="erp-dialog"
+            style="width: 480px;">
+
+            <p:outputPanel id="panelCriar">
+                <div class="form-grid">
+
+                    <!-- Nome -->
+                    <div class="form-group">
+                        <label for="criarNome">Nome completo <span class="required">*</span></label>
+                        <p:inputText
+                            id="criarNome"
+                            value="#{usuarioBean.usuarioSelecionado.nome}"
+                            required="true"
+                            requiredMessage="Nome obrigatório."
+                            maxlength="150"
+                            styleClass="form-input"
+                            placeholder="Ex: João da Silva"/>
+                    </div>
+
+                    <!-- E-mail -->
+                    <div class="form-group">
+                        <label for="criarEmail">E-mail (login) <span class="required">*</span></label>
+                        <p:inputText
+                            id="criarEmail"
+                            value="#{usuarioBean.usuarioSelecionado.email}"
+                            required="true"
+                            requiredMessage="E-mail obrigatório."
+                            validatorMessage="E-mail inválido."
+                            maxlength="200"
+                            styleClass="form-input"
+                            placeholder="usuario@barbershop.com">
+                            <f:validateRegex pattern="^[^\s@]+@[^\s@]+\.[^\s@]+$"/>
+                        </p:inputText>
+                    </div>
+
+                    <!-- Senha -->
+                    <div class="form-group">
+                        <label for="criarSenha">Senha <span class="required">*</span></label>
+                        <p:password
+                            id="criarSenha"
+                            value="#{usuarioBean.senhaDigitada}"
+                            required="true"
+                            requiredMessage="Senha obrigatória."
+                            minLength="6"
+                            feedback="true"
+                            promptLabel="Digite a senha"
+                            weakLabel="Fraca"
+                            goodLabel="Boa"
+                            strongLabel="Forte"
+                            styleClass="form-input"/>
+                    </div>
+
+                    <!-- Perfil -->
+                    <div class="form-group">
+                        <label for="criarPapel">Perfil de acesso <span class="required">*</span></label>
+                        <p:selectOneMenu
+                            id="criarPapel"
+                            value="#{usuarioBean.papelSelecionado}"
+                            required="true"
+                            requiredMessage="Perfil obrigatório."
+                            styleClass="form-select">
+                            <f:selectItem itemLabel="— Selecione —" itemValue="" noSelectionOption="true"/>
+                            <f:selectItem itemLabel="Administrador"  itemValue="ROLE_ADMIN"/>
+                            <f:selectItem itemLabel="Padrão"         itemValue="ROLE_DEFAULT"/>
+                        </p:selectOneMenu>
+                    </div>
+
+                </div><!-- /form-grid -->
+            </p:outputPanel>
+
+            <!-- Rodapé do diálogo -->
+            <f:facet name="footer">
+                <div class="dialog-footer">
+                    <p:commandButton
+                        value="Salvar"
+                        icon="fa fa-save"
+                        styleClass="btn-primary"
+                        action="#{usuarioBean.salvar}"
+                        update="panelCriar tabelaUsuarios msgs"
+                        oncomplete="if (!args.validationFailed) PF('dlgCriar').hide()"/>
+
+                    <p:commandButton
+                        value="Cancelar"
+                        icon="fa fa-times"
+                        styleClass="btn-secondary"
+                        immediate="true"
+                        onclick="PF('dlgCriar').hide(); return false;"/>
+                </div>
+            </f:facet>
+        </p:dialog>
+
+        <!-- ============================================================ -->
+        <!-- DIÁLOGO: Editar Usuário                                      -->
+        <!-- ============================================================ -->
+        <p:dialog
+            id="dialogEditar"
+            header="Editar Usuário"
+            widgetVar="dlgEditar"
+            modal="true"
+            resizable="false"
+            styleClass="erp-dialog"
+            style="width: 480px;">
+
+            <p:outputPanel id="panelEditar">
+                <div class="form-grid">
+
+                    <!-- Nome -->
+                    <div class="form-group">
+                        <label for="editarNome">Nome completo <span class="required">*</span></label>
+                        <p:inputText
+                            id="editarNome"
+                            value="#{usuarioBean.usuarioSelecionado.nome}"
+                            required="true"
+                            requiredMessage="Nome obrigatório."
+                            maxlength="150"
+                            styleClass="form-input"/>
+                    </div>
+
+                    <!-- E-mail -->
+                    <div class="form-group">
+                        <label for="editarEmail">E-mail (login) <span class="required">*</span></label>
+                        <p:inputText
+                            id="editarEmail"
+                            value="#{usuarioBean.usuarioSelecionado.email}"
+                            required="true"
+                            requiredMessage="E-mail obrigatório."
+                            maxlength="200"
+                            styleClass="form-input"/>
+                    </div>
+
+                    <!-- Nova senha (opcional) -->
+                    <div class="form-group">
+                        <label for="editarSenha">
+                            Nova senha
+                            <small class="hint">(deixe em branco para manter a atual)</small>
+                        </label>
+                        <p:password
+                            id="editarSenha"
+                            value="#{usuarioBean.senhaDigitada}"
+                            required="false"
+                            feedback="true"
+                            promptLabel="Nova senha (opcional)"
+                            weakLabel="Fraca"
+                            goodLabel="Boa"
+                            strongLabel="Forte"
+                            styleClass="form-input"/>
+                    </div>
+
+                    <!-- Perfil -->
+                    <div class="form-group">
+                        <label for="editarPapel">Perfil de acesso <span class="required">*</span></label>
+                        <p:selectOneMenu
+                            id="editarPapel"
+                            value="#{usuarioBean.papelSelecionado}"
+                            required="true"
+                            requiredMessage="Perfil obrigatório."
+                            styleClass="form-select">
+                            <f:selectItem itemLabel="Administrador"  itemValue="ROLE_ADMIN"/>
+                            <f:selectItem itemLabel="Padrão"         itemValue="ROLE_DEFAULT"/>
+                        </p:selectOneMenu>
+                    </div>
+
+                </div><!-- /form-grid -->
+            </p:outputPanel>
+
+            <!-- Rodapé do diálogo -->
+            <f:facet name="footer">
+                <div class="dialog-footer">
+                    <p:commandButton
+                        value="Salvar alterações"
+                        icon="fa fa-save"
+                        styleClass="btn-primary"
+                        action="#{usuarioBean.editar}"
+                        update="panelEditar tabelaUsuarios msgs"
+                        oncomplete="if (!args.validationFailed) PF('dlgEditar').hide()"/>
+
+                    <p:commandButton
+                        value="Cancelar"
+                        icon="fa fa-times"
+                        styleClass="btn-secondary"
+                        immediate="true"
+                        onclick="PF('dlgEditar').hide(); return false;"/>
+                </div>
+            </f:facet>
+        </p:dialog>
+
+    </h:form>
+    <!-- /formUsuarios -->
+
+</h:body>
+</html>
