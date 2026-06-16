@@ -75,8 +75,9 @@ RUN /opt/jboss/wildfly/bin/add-user.sh admin Admin#2026 --silent
 # gerencia standalone.xml via CRDs (não necessário neste projeto acadêmico).
 COPY docker/wildfly-cli/configure-datasource.cli /tmp/configure-datasource.cli
 RUN /opt/jboss/wildfly/bin/jboss-cli.sh \
-        --file=/tmp/configure-datasource.cli \
-    && rm -f /tmp/configure-datasource.cli
+        --file=/tmp/configure-datasource.cli; \
+    chmod 777 /tmp/configure-datasource.cli; \
+    rm -f /tmp/configure-datasource.cli || true
 
 # ─── WAR da aplicação ─────────────────────────────────────────────────────────
 # Copia APENAS o WAR do stage builder — nenhum código-fonte ou JAR intermediário
@@ -106,3 +107,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
 CMD ["/opt/jboss/wildfly/bin/standalone.sh", \
      "-b", "0.0.0.0", \
      "-bmanagement", "0.0.0.0"]
+

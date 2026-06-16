@@ -133,9 +133,9 @@
         <!-- Etapa 5: Relatórios e Dashboard                    -->
         <!-- ================================================== -->
 
-        <!-- iText 7 Core — geração de PDF diretamente no HttpServletResponse --
-             Contém: kernel, layout, io (dependências transitivas inclusas).   --
-             Alternativa OSS à versão comercial iText 8.                       -->
+        <!-- iText 7 Core — geração de PDF diretamente no HttpServletResponse -->
+            <!-- Contém: kernel, layout, io (dependências transitivas inclusas).   -->
+            <!-- Alternativa OSS à versão comercial iText 8.                       -->
         <dependency>
             <groupId>com.itextpdf</groupId>
             <artifactId>itext7-core</artifactId>
@@ -143,9 +143,9 @@
             <type>pom</type>
         </dependency>
 
-        <!-- OpenCSV 5.x — escrita de CSV com suporte a BOM UTF-8,           --
-             escape de caracteres especiais e separador configurável.          --
-             Ponto-e-vírgula como separador para compatibilidade com Excel BR. -->
+        <!-- OpenCSV 5.x — escrita de CSV com suporte a BOM UTF-8,           -->
+            <!-- escape de caracteres especiais e separador configurável.          -->
+            <!-- Ponto-e-vírgula como separador para compatibilidade com Excel BR. -->
         <dependency>
             <groupId>com.opencsv</groupId>
             <artifactId>opencsv</artifactId>

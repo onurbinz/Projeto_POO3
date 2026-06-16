@@ -293,19 +293,6 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
 
                 // X-Frame-Options: DENY — previne clickjacking via iframe
                 .frameOptions().deny()
-                .and()
-
-                // Content-Security-Policy: whitelist explícita de origens confiáveis
-                // 'unsafe-inline' necessário para JSF/PrimeFaces (geração inline de scripts)
-                .contentSecurityPolicy(
-                    "default-src 'self'; " +
-                    "script-src 'self' 'unsafe-inline' 'unsafe-eval'; " +
-                    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
-                    "font-src 'self' https://fonts.gstatic.com; " +
-                    "img-src 'self' data:; " +
-                    "connect-src 'self'; " +
-                    "frame-ancestors 'none';"
-                )
             .and()
 
             // ------------------------------------------------------------------
