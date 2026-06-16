@@ -83,29 +83,13 @@ RUN /opt/jboss/wildfly/bin/add-user.sh admin Admin#2026 --silent
 # Instalamos o módulo ANTES de executar o CLI para que o comando
 # jdbc-driver=postgresql:add(..., driver-module-name=org.postgresql) funcione.
 COPY --from=builder /build/postgresql-driver.jar /tmp/postgresql-driver.jar
+COPY docker/wildfly-cli/module.xml /tmp/module.xml
 COPY docker/wildfly-cli/configure-datasource.cli /tmp/configure-datasource.cli
-RUN set -e; \
-    # Cria a estrutura de diretórios do módulo
-    mkdir -p /opt/jboss/wildfly/modules/org/postgresql/main; \
-    # Copia o JAR do driver para o módulo
-    cp /tmp/postgresql-driver.jar /opt/jboss/wildfly/modules/org/postgresql/main/postgresql-driver.jar; \
-    # Cria o module.xml obrigatório
-    cat > /opt/jboss/wildfly/modules/org/postgresql/main/module.xml << 'EOF'
-<?xml version="1.0" encoding="UTF-8"?>
-<module name="org.postgresql" xmlns="urn:jboss:module:1.9">
-    <resources>
-        <resource-root path="postgresql-driver.jar"/>
-    </resources>
-    <dependencies>
-        <module name="javax.api"/>
-        <module name="javax.transaction.api"/>
-    </dependencies>
-</module>
-EOF
-    # Registra o datasource e driver no standalone.xml via CLI embedded
-    /opt/jboss/wildfly/bin/jboss-cli.sh --file=/tmp/configure-datasource.cli; \
-    # Limpeza
-    rm -f /tmp/postgresql-driver.jar /tmp/configure-datasource.cli
+RUN mkdir -p /opt/jboss/wildfly/modules/org/postgresql/main \
+    && cp /tmp/postgresql-driver.jar /opt/jboss/wildfly/modules/org/postgresql/main/postgresql-driver.jar \
+    && cp /tmp/module.xml /opt/jboss/wildfly/modules/org/postgresql/main/module.xml \
+    && /opt/jboss/wildfly/bin/jboss-cli.sh --file=/tmp/configure-datasource.cli \
+    && rm -f /tmp/postgresql-driver.jar /tmp/module.xml /tmp/configure-datasource.cli
 
 # ─── WAR da aplicação ─────────────────────────────────────────────────────────
 # Copia APENAS o WAR do stage builder — nenhum código-fonte ou JAR intermediário
