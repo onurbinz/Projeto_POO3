@@ -41,7 +41,7 @@ public class ErpAuthenticationSuccessHandler
     public ErpAuthenticationSuccessHandler(LoginAttemptService loginAttemptService) {
         this.loginAttemptService = loginAttemptService;
         // URL de destino padrão caso não haja URL salva antes do login
-        setDefaultTargetUrl("/pages/dashboard.xhtml");
+        setDefaultTargetUrl("/pages/relatorios/dashboard.xhtml");
         // false = redireciona para a URL original salva, não sempre para o default
         setAlwaysUseDefaultTargetUrl(false);
     }

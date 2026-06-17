@@ -219,8 +219,7 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
                 .antMatchers(
                     "/pages/vendas/**",       // Módulo de vendas
                     "/pages/catalogo/**",     // Catálogo de produtos e serviços
-                    "/pages/compras/**",      // Módulo de compras e fornecedores
-                    "/pages/dashboard.xhtml"  // Dashboard principal
+                    "/pages/compras/**"        // Módulo de compras e fornecedores
                 ).hasAnyRole("ADMIN", "DEFAULT")
 
                 // Qualquer outra rota protegida exige autenticação mínima
@@ -233,7 +232,7 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
             .formLogin()
                 .loginPage("/login.xhtml")                              // URL da página física para o navegador (GET)
                 .loginProcessingUrl("/login")                           // Endpoint que o Spring usa para interceptar o POST
-                .defaultSuccessUrl("/pages/dashboard.xhtml", true)
+                .defaultSuccessUrl("/pages/relatorios/dashboard.xhtml", true)
                 .failureUrl("/login.xhtml?erro=true")                   // Ajustado para apontar para o .xhtml
                 .usernameParameter("username")
                 .passwordParameter("password")

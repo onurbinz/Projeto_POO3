@@ -1,678 +1,479 @@
-# 📋 Documentação Completa — ERP Barbershop
+# ERP Barbershop — Documentação do Sistema
 
-> Sistema ERP Web modular para gestão do back-office de uma barbearia moderna.
-> Desenvolvido como projeto acadêmico da disciplina **Programação Orientada a Objetos 3** — UERJ, 2026.
+> Sistema de gestão (ERP) para barbearias, desenvolvido como projeto acadêmico para a disciplina
+> **Programação Orientada a Objetos III** — UERJ, 5º Período (2026).
 
 ---
 
-## 🚀 Como Executar (Com Docker - Recomendado)
+## Sumário
 
-Se você tem o Docker Desktop instalado e com virtualização ativada, este é o método mais simples. Nenhum Java, Maven ou PostgreSQL precisa ser instalado na sua máquina host.
+1. [Tecnologias Utilizadas](#1-tecnologias-utilizadas)
+2. [Arquitetura do Sistema](#2-arquitetura-do-sistema)
+3. [Diagrama de Entidades e Relacionamentos](#3-diagrama-de-entidades-e-relacionamentos)
+4. [Funcionalidades do Sistema](#4-funcionalidades-do-sistema)
+5. [Segurança e Controle de Acesso](#5-segurança-e-controle-de-acesso)
+6. [Get Started](#6-get-started)
 
-```bash
-# 1. Acesse a pasta do projeto
-cd Projeto_POO3
+---
 
-# 2. Suba tudo com um único comando
-docker compose up --build
+## 1. Tecnologias Utilizadas
 
-# Aguarde o WildFly subir (~2-3 minutos no primeiro build)
-# Quando aparecer "WildFly Full 26.1.3.Final started", acesse:
+### Backend
+
+| Tecnologia | Versão | Papel |
+|---|---|---|
+| **Java** | 17 (LTS) | Linguagem principal |
+| **Jakarta EE** | 8 | Plataforma corporativa (EJB, JPA, CDI, JSF) |
+| **WildFly** | 26.1.3.Final | Servidor de aplicação Jakarta EE |
+| **Hibernate ORM** | 5.3.28.Final | Provedor JPA (embutido no WildFly) |
+| **Spring Security** | 5.8.14 | Autenticação, autorização e proteção CSRF |
+| **PostgreSQL JDBC** | 42.7.3 | Driver de conexão ao banco de dados |
+
+### Frontend
+
+| Tecnologia | Versão | Papel |
+|---|---|---|
+| **JSF (Jakarta Server Faces)** | 2.3 | Framework de componentes web |
+| **PrimeFaces** | 12.0.0 | Biblioteca de componentes UI ricos |
+
+### Banco de Dados
+
+| Tecnologia | Versão | Papel |
+|---|---|---|
+| **PostgreSQL** | 15-alpine | Banco de dados relacional |
+
+### Relatórios e Exportação
+
+| Tecnologia | Versão | Papel |
+|---|---|---|
+| **iText 7** | 7.2.5 | Geração de relatórios em PDF |
+| **OpenCSV** | 5.9 | Exportação de dados em CSV |
+
+### Infraestrutura e Build
+
+| Tecnologia | Versão | Papel |
+|---|---|---|
+| **Docker** | — | Conteinerização dos serviços |
+| **Docker Compose** | — | Orquestração local dos containers |
+| **Maven** | 3.9 | Gerenciamento de dependências e build |
+| **Multi-Stage Dockerfile** | — | Separação entre ambiente de build e runtime |
+
+---
+
+## 2. Arquitetura do Sistema
+
+O sistema é um **monolito modular** (WAR único) implantado no WildFly, seguindo os princípios de
+**Domain-Driven Design (DDD)** com módulos lógicos separados por contexto de negócio.
+
+```
+erp-barbershop.war
+├── identidade/     ← Usuários, Papéis, Autenticação, Logs de Acesso
+├── catalogo/       ← Produtos, Categorias, Controle de Estoque
+├── compras/        ← Fornecedores, Sugestões de Compra
+├── vendas/         ← PDV (Ponto de Venda), Itens de Venda
+└── relatorios/     ← Dashboard, Relatórios PDF/CSV
 ```
 
-| O que | URL |
+**Padrão em cada módulo:**
+- `model/` — Entidades JPA (persistência)
+- `repository/` — Acesso a dados via EntityManager
+- `service/` — EJBs Stateless com regras de negócio
+- `controller/` — CDI Managed Beans (ViewScoped) conectados às páginas JSF
+
+---
+
+## 3. Diagrama de Entidades e Relacionamentos
+
+```mermaid
+flowchart TD
+    subgraph IDENTIDADE["🔐 Módulo: Identidade"]
+        USUARIO["<b>usuarios</b>
+        ---
+        id: BIGSERIAL PK
+        nome: VARCHAR(150)
+        email: VARCHAR(200) UNIQUE
+        senha: VARCHAR(255) [BCrypt]
+        ativo: BOOLEAN"]
+
+        PAPEL["<b>papeis</b>
+        ---
+        id: BIGSERIAL PK
+        nome: VARCHAR(50) UNIQUE
+        [ROLE_ADMIN | ROLE_DEFAULT]"]
+
+        USUARIO_PAPEL["<b>usuario_papel</b>
+        ---
+        usuario_id: FK
+        papel_id: FK"]
+
+        LOG["<b>log_acessos</b>
+        ---
+        id: BIGSERIAL PK
+        data_hora: TIMESTAMP
+        acao: VARCHAR(100)
+        ip: VARCHAR(45)
+        resultado: VARCHAR [SUCESSO|ERRO]
+        usuario_id: FK"]
+    end
+
+    subgraph CATALOGO["🛍️ Módulo: Catálogo"]
+        CATEGORIA["<b>categorias</b>
+        ---
+        id: BIGSERIAL PK
+        nome: VARCHAR(100) UNIQUE
+        descricao: VARCHAR(500)"]
+
+        PRODUTO["<b>produtos</b>
+        ---
+        id: BIGSERIAL PK
+        nome: VARCHAR(150)
+        descricao: VARCHAR(500)
+        preco: NUMERIC(10,2)
+        quantidade_estoque: INTEGER
+        quantidade_minima: INTEGER
+        ativo: BOOLEAN
+        categoria_id: FK
+        fornecedor_id: FK"]
+    end
+
+    subgraph COMPRAS["📦 Módulo: Compras"]
+        FORNECEDOR["<b>fornecedores</b>
+        ---
+        id: BIGSERIAL PK
+        nome: VARCHAR(200)
+        cnpj: VARCHAR(14) UNIQUE
+        email_contato: VARCHAR(200)
+        telefone: VARCHAR(20)
+        ativo: BOOLEAN"]
+    end
+
+    subgraph VENDAS["💰 Módulo: Vendas"]
+        VENDA["<b>vendas</b>
+        ---
+        id: BIGSERIAL PK
+        data_venda: TIMESTAMP
+        valor_total: NUMERIC(12,2)
+        forma_pagamento: VARCHAR(20)
+        status: VARCHAR(15)
+        usuario_id: FK"]
+
+        ITEM_VENDA["<b>itens_venda</b>
+        ---
+        id: BIGSERIAL PK
+        quantidade: INTEGER
+        preco_unitario: NUMERIC(10,2)
+        venda_id: FK
+        produto_id: FK"]
+    end
+
+    %% Relacionamentos
+    USUARIO -- "ManyToMany (dono)" --> USUARIO_PAPEL
+    PAPEL -- "ManyToMany (inverso)" --> USUARIO_PAPEL
+
+    USUARIO -- "OneToMany" --> LOG
+
+    CATEGORIA -- "OneToMany" --> PRODUTO
+    FORNECEDOR -- "OneToMany" --> PRODUTO
+
+    USUARIO -- "OneToMany" --> VENDA
+    VENDA -- "OneToMany cascade ALL" --> ITEM_VENDA
+    PRODUTO -- "ManyToOne" --> ITEM_VENDA
+```
+
+### Legenda dos Relacionamentos
+
+| Relação | Tabelas | Tipo |
+|---|---|---|
+| Usuário ↔ Papel | `usuario_papel` | ManyToMany |
+| Usuário → LogAcesso | `log_acessos.usuario_id` | OneToMany |
+| Categoria → Produto | `produtos.categoria_id` | OneToMany |
+| Fornecedor → Produto | `produtos.fornecedor_id` | OneToMany (nullable — serviços sem fornecedor) |
+| Usuário → Venda | `vendas.usuario_id` | OneToMany |
+| Venda → ItemVenda | `itens_venda.venda_id` | OneToMany (cascade ALL + orphanRemoval) |
+| Produto → ItemVenda | `itens_venda.produto_id` | ManyToOne |
+
+---
+
+## 4. Funcionalidades do Sistema
+
+### 4.1 Módulo: Identidade / Usuários
+
+- **Autenticação** com email + senha (hash BCrypt, fator de custo 12)
+- **Cadastro de usuários** com papel `ROLE_ADMIN` ou `ROLE_DEFAULT`
+- **Edição de usuários** — nome, email, senha (opcional) e papel
+- **Inativação lógica** — usuário nunca é deletado fisicamente
+- **Log de acessos** — registra cada login/logout com IP e resultado (SUCESSO/ERRO)
+- **Proteção contra força bruta** — bloqueio por IP após tentativas inválidas (`IpBloqueioFilter`)
+- **Sessão única** — cada usuário pode ter apenas 1 sessão ativa simultânea
+
+### 4.2 Módulo: Catálogo / Produtos
+
+- **Cadastro de produtos físicos** (com estoque e fornecedor)
+- **Cadastro de serviços** (sem estoque, sem fornecedor — ex: corte, barba)
+- **Categorização** — cada produto pertence a uma categoria
+- **Controle de estoque** — quantidade atual e quantidade mínima
+- **Alerta de estoque baixo** — `isEstoqueBaixo()` compara estoque atual com mínimo
+- **Soft delete** — desativação lógica preserva histórico de vendas anteriores
+- **Cadastro de categorias** — gerenciamento das categorias de produtos
+
+### 4.3 Módulo: Compras / Fornecedores
+
+- **Cadastro de fornecedores** com nome, CNPJ, email e telefone
+- **Inativação lógica** de fornecedores
+- **Sugestão de compras automática** (`SugestaoCompra`) — calcula quantidade sugerida baseada em:
+  - Estoque atual vs. estoque mínimo
+  - Média diária de consumo (últimos 30 dias)
+  - Urgência (estoque zerado, crítico, baixo)
+
+### 4.4 Módulo: Vendas / PDV
+
+- **Ponto de Venda (PDV)** — abertura de venda com carrinho de compras
+- **Adição/remoção de itens** — cada item registra preço como snapshot (imutável no histórico)
+- **Recálculo automático do total** — soma dos itens (preço unitário × quantidade)
+- **Formas de pagamento**: `BOLETO`, `CARTAO_CREDITO`, `PIX`
+- **Ciclo de vida da venda**:
+  - `ABERTA` → venda em composição (carrinho)
+  - `FECHADA` → venda finalizada e paga
+  - `CANCELADA` → venda cancelada
+
+### 4.5 Módulo: Relatórios / Dashboard
+
+- **Dashboard** — visão geral com indicadores de desempenho
+- **Relatório de vendas por dia** (`VendasPorDiaDTO`)
+- **Ranking de produtos mais vendidos** (`ProdutoMaisVendidoDTO`)
+- **Exportação de relatórios** em **PDF** (iText 7) e **CSV** (OpenCSV)
+
+---
+
+## 5. Segurança e Controle de Acesso
+
+| Página | Papéis permitidos |
 |---|---|
-| **Aplicação** | http://localhost:8080/erp-barbershop |
-| **Admin WildFly** | http://localhost:9990 |
+| `/login.xhtml` | Público (sem autenticação) |
+| `/pages/identidade/**` | Apenas `ROLE_ADMIN` |
+| `/pages/relatorios/**` | Apenas `ROLE_ADMIN` |
+| `/pages/vendas/**` | `ROLE_ADMIN` ou `ROLE_DEFAULT` |
+| `/pages/catalogo/**` | `ROLE_ADMIN` ou `ROLE_DEFAULT` |
+| `/pages/compras/**` | `ROLE_ADMIN` ou `ROLE_DEFAULT` |
 
-**Credenciais padrão:**
-- WildFly Admin: `admin` / `Admin#2026`
-- Banco de dados: `erp_admin` / `erp_secret_2026`
+**Headers de segurança ativos:**
+- `Strict-Transport-Security` (HSTS — 1 ano)
+- `X-Content-Type-Options: nosniff`
+- `X-XSS-Protection: 1; mode=block`
+- `X-Frame-Options: DENY`
+- Proteção CSRF habilitada
 
-### Outros comandos úteis
+---
 
-```bash
-# Ver logs ao vivo
-docker compose logs -f
+## 6. Get Started
 
-# Parar sem apagar dados
-docker compose stop
+### Pré-requisitos
 
-# Parar e remover containers (dados do banco sobrevivem)
-docker compose down
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) instalado e em execução
+- Portas **8080**, **9990** e **5432** livres na máquina
 
-# Parar e APAGAR todos os dados do banco
-docker compose down -v
+---
 
-# Reconstruir a imagem após mudanças no código
-docker compose up --build
+### Passo 1 — Limpar containers e volumes existentes
+
+> ⚠️ **Atenção:** o `-v` apaga todos os dados do banco. Omita-o se quiser preservar os dados.
+
+```powershell
+docker-compose down -v
 ```
 
-> [!IMPORTANT]
-> Na **primeira execução**, o PostgreSQL cria o banco e executa o `schema.sql` automaticamente (tabelas + papéis padrão). O WildFly só inicia depois que o banco estiver saudável.
+Isso remove:
+- Containers `erp-barbershop-app` e `erp-barbershop-db`
+- Volume `pgdata` (dados do PostgreSQL)
+- Rede `erp-network`
 
 ---
 
-## 💻 Como Executar Localmente (Sem Docker / Sem Virtualização)
+### Passo 2 — Buildar e subir os containers
 
-Caso o seu computador não possua suporte a virtualização de hardware ativada na BIOS (ou você não consiga rodar o Docker Desktop), você pode rodar a aplicação e o banco de dados nativamente no Windows seguindo o passo a passo abaixo.
-
-### 📋 Pré-requisitos
-1. **Java Development Kit (JDK 17)** instalado e a variável `JAVA_HOME` configurada no ambiente.
-2. **Apache Maven 3.9+** instalado e adicionado ao `Path`.
-3. **PostgreSQL 15** instalado localmente.
-4. **WildFly 26.1.3.Final** (versão "Jakarta EE 8") baixado e extraído em uma pasta local.
-   * [Link para download do WildFly 26.1.3.Final](https://www.wildfly.org/downloads/)
-
----
-
-### 1️⃣ Passo 1: Configurar o Banco de Dados (PostgreSQL)
-1. Abra o seu console SQL, `psql` ou o pgAdmin, e crie a base de dados e o usuário com as mesmas credenciais do projeto:
-   ```sql
-   CREATE DATABASE erp_db;
-   CREATE USER erp_admin WITH PASSWORD 'erp_secret_2026';
-   GRANT ALL PRIVILEGES ON DATABASE erp_db TO erp_admin;
-   ```
-2. Conecte-se ao banco `erp_db` recém-criado utilizando as novas credenciais ou como superusuário (`postgres`) e execute o script SQL do schema do projeto, localizado em:
-   * [`docs/schema.sql`](file:///d:/UERJ/5%20periodo/POO3/Projeto_POO3/docs/schema.sql)
-   *(Este comando criará todas as tabelas e inserirá os papéis/roles iniciais no banco de dados).*
-
----
-
-### 2️⃣ Passo 2: Configurar o Driver JDBC do PostgreSQL no WildFly
-Para que o WildFly reconheça a conexão com o PostgreSQL, siga os passos abaixo para registrar o driver JDBC:
-
-1. Baixe o driver JDBC do PostgreSQL (`postgresql-42.6.0.jar` ou similar) do site oficial da PostgreSQL.
-2. Com o WildFly desligado, crie a seguinte estrutura de pastas dentro da instalação do WildFly:
-   ```
-   <CAMINHO_DO_WILDFLY>/modules/system/layers/base/org/postgresql/main/
-   ```
-3. Copie o arquivo `.jar` do driver JDBC baixado para dentro desta pasta criada (`main/`).
-4. Crie um arquivo chamado `module.xml` nessa mesma pasta com o seguinte conteúdo:
-   ```xml
-   <?xml version="1.0" encoding="UTF-8"?>
-   <module xmlns="urn:jboss:module:1.5" name="org.postgresql">
-       <resources>
-           <resource-root path="postgresql-42.6.0.jar"/>
-       </resources>
-       <dependencies>
-           <module name="javax.api"/>
-           <module name="javax.transaction.api"/>
-       </dependencies>
-   </module>
-   ```
-   *(Nota: Se a versão do seu driver for diferente, ajuste o atributo `path` de `<resource-root>` para corresponder ao nome do seu arquivo `.jar`).*
-
----
-
-### 3️⃣ Passo 3: Registrar o DataSource no WildFly
-Você precisa registrar o DataSource `java:jboss/datasources/ErpBarbershopDS` usado pela nossa camada de persistência.
-
-1. Vá para a pasta do WildFly e execute o servidor:
-   * Dê dois cliques em `<CAMINHO_DO_WILDFLY>/bin/standalone.bat` no Windows.
-2. Em outra janela de terminal, entre no CLI do WildFly:
-   ```cmd
-   cd <CAMINHO_DO_WILDFLY>/bin
-   jboss-cli.bat --connect
-   ```
-3. Copie, cole e execute os seguintes comandos no terminal do CLI para registrar o Driver e o DataSource:
-   ```cli
-   # 1. Registra o driver JDBC do PostgreSQL no subsistema do WildFly
-   /subsystem=datasources/jdbc-driver=postgresql:add(driver-name=postgresql,driver-module-name=org.postgresql,driver-class-name=org.postgresql.Driver)
-
-   # 2. Adiciona o DataSource ErpBarbershopDS
-   /subsystem=datasources/data-source=ErpBarbershopDS:add(jndi-name="java:jboss/datasources/ErpBarbershopDS",connection-url="jdbc:postgresql://localhost:5432/erp_db",driver-name="postgresql",user-name="erp_admin",password="erp_secret_2026",enabled="true",use-java-context="true")
-   ```
-4. Se tudo foi executado com sucesso, você verá a mensagem `{"outcome" => "success"}` para cada comando. Digite `exit` para sair do CLI.
-
----
-
-### 4️⃣ Passo 4: Compilar e Fazer Deploy da Aplicação
-1. Abra um terminal do Windows (CMD, PowerShell ou Git Bash) na pasta raiz do seu projeto (`Projeto_POO3`).
-2. Compile a aplicação com o Maven:
-   ```bash
-   mvn clean package
-   ```
-   *(Este comando executará os testes e gerará o arquivo `target/erp-barbershop.war`)*.
-3. Copie o arquivo gerado `target/erp-barbershop.war` para o diretório de deploys automáticos do seu WildFly local:
-   ```
-   <CAMINHO_DO_WILDFLY>/standalone/deployments/
-   ```
-4. O console do WildFly detectará o arquivo e fará a inicialização da aplicação automaticamente. Quando ver a mensagem de sucesso no console (`Deployed "erp-barbershop.war"`), a aplicação estará pronta!
-
----
-
-### 5️⃣ Passo 6: Acesso à Aplicação
-* **URL da Aplicação**: http://localhost:8080/erp-barbershop
-* **Console de Administração do WildFly**: http://localhost:9990
-
----
-
-## 🏗️ Stack Tecnológica
-
-| Camada | Tecnologia | Versão | Papel |
-|---|---|---|---|
-| **Servidor de App** | WildFly | 26.1.3 Final | Container Jakarta EE 8 |
-| **Front-end** | JSF (JavaServer Faces) | 2.3 | Framework de telas web |
-| **Componentes UI** | PrimeFaces | 12.0.0 | DataTable, Charts, Dialog, etc. |
-| **Back-end** | EJB (Enterprise JavaBeans) | 3.2 | Lógica de negócio + transações |
-| **Persistência** | JPA / Hibernate | 2.2 / 5.3 | ORM para o banco de dados |
-| **Banco de Dados** | PostgreSQL | 15 | Banco relacional |
-| **Segurança** | Spring Security | 5.8.14 | Autenticação + RBAC |
-| **Relatórios PDF** | iText 7 | 7.2.5 | Geração de arquivos PDF |
-| **Relatórios CSV** | OpenCSV | 5.9 | Exportação para planilhas |
-| **Build** | Maven | 3.9 | Compilação e empacotamento |
-| **Contêiner** | Docker + Compose | 3.9 | Ambiente de execução |
-| **Orquestração** | Kubernetes | — | Produção (manifestos em `k8s/`) |
-| **Linguagem** | Java | 17 (LTS) | Back-end |
-
----
-
-## 📁 Estrutura de Diretórios
-
+```powershell
+docker-compose up --build
 ```
-Projeto_POO3/
-│
-├── 📄 docker-compose.yml          ← Sobe tudo com um comando
-├── 📄 Dockerfile                  ← Build multi-stage Maven → WildFly
-├── 📄 .dockerignore               ← Arquivos ignorados no build Docker
-├── 📄 pom.xml                     ← Dependências Maven
-├── 📄 deploy-k8s.sh               ← Script de deploy Kubernetes (Bash)
-│
-├── 📁 docker/
-│   └── wildfly-cli/
-│       └── configure-datasource.cli  ← Configura conexão DB no WildFly
-│
-├── 📁 k8s/                        ← Manifestos Kubernetes (produção)
-│   ├── namespace.yaml
-│   ├── configmap.yaml
-│   ├── secret.yaml
-│   ├── persistence.yaml
-│   ├── deployment.yaml
-│   └── service.yaml
-│
-├── 📁 docs/
-│   ├── schema.sql                 ← Script DDL do banco (executado automaticamente)
-│   └── documentacao.md           ← Documentação técnica completa
-│
-└── 📁 src/main/
-    ├── 📁 java/com/erp/
-    │   ├── identidade/            ← Módulo: Usuários e Segurança
-    │   ├── catalogo/              ← Módulo: Produtos e Categorias
-    │   ├── compras/               ← Módulo: Fornecedores
-    │   ├── vendas/                ← Módulo: Vendas e PDV
-    │   └── relatorios/            ← Módulo: Dashboard e Exportações
-    │
-    ├── 📁 resources/
-    │   └── META-INF/
-    │       └── persistence.xml   ← Configuração JPA
-    │
-    └── 📁 webapp/
-        ├── WEB-INF/
-        │   ├── web.xml           ← Configuração do servlet container
-        │   ├── beans.xml         ← Habilita CDI
-        │   └── faces-config.xml  ← Configuração JSF
-        ├── resources/
-        │   ├── css/erp.css       ← Design system (tema dark)
-        │   ├── css/dashboard.css ← Estilos do dashboard
-        │   └── js/dashboard-charts.js ← Extenders Chart.js
-        └── pages/
-            ├── identidade/       ← Tela de usuários
-            ├── catalogo/         ← Tela de produtos
-            ├── compras/          ← Tela de fornecedores
-            ├── vendas/           ← Tela de PDV
-            └── relatorios/       ← Dashboard e relatórios
+
+O que acontece internamente:
+1. **Stage 1 (builder):** Maven baixa dependências e compila o projeto → gera `erp-barbershop.war`
+2. **Stage 2 (runtime):** WildFly instala o módulo PostgreSQL e configura o datasource via CLI
+3. **PostgreSQL sobe primeiro** — o WildFly aguarda o healthcheck passar antes de iniciar
+4. **Schema DDL executado** — `docs/schema.sql` é aplicado automaticamente pelo PostgreSQL na primeira execução (cria tabelas e insere os 4 papéis padrão)
+5. **WildFly faz deploy** do WAR e o Hibernate valida/atualiza o schema
+
+Aguarde a mensagem:
+```
+WildFly Full 26.1.3.Final started in Xms
 ```
 
 ---
 
-## 🗄️ Banco de Dados — Tabelas
+### Passo 3 — Acessar a aplicação
 
-O schema é criado automaticamente pelo PostgreSQL no Docker ou executado manualmente localmente.
-O arquivo SQL está em [`docs/schema.sql`](file:///d:/UERJ/5%20periodo/POO3/Projeto_POO3/docs/schema.sql).
-
-### 📊 Visão geral das tabelas
-
-```
-papeis ──────────────────────────── usuario_papel ──── usuarios
-                                                            │
-                                                            │ (FK)
-log_acessos ────────────────────────────────────────────────┘
-
-categorias ──── produtos ──── fornecedores
-                    │
-                    │ (FK via item)
-                itens_venda ──── vendas ──── usuarios
-```
-
-### Tabela `papeis` — Papéis do sistema (RBAC)
-
-| Coluna | Tipo | Descrição |
+| Serviço | URL | Credencial |
 |---|---|---|
-| `id` | BIGSERIAL PK | Identificador único |
-| `nome` | VARCHAR(50) UNIQUE | Nome do papel: `ROLE_ADMIN`, `ROLE_GERENTE`, `ROLE_BARBEIRO`, `ROLE_CAIXA` |
-
-**Dados iniciais:** Os 4 papéis são criados automaticamente pelo `schema.sql`.
-
-### Tabela `usuarios` — Usuários do sistema
-
-| Coluna | Tipo | Descrição |
-|---|---|---|
-| `id` | BIGSERIAL PK | Identificador único |
-| `nome` | VARCHAR(150) NOT NULL | Nome completo |
-| `email` | VARCHAR(200) UNIQUE | Login do usuário |
-| `senha` | VARCHAR(255) | Hash BCrypt (nunca texto puro) |
-| `ativo` | BOOLEAN DEFAULT true | `false` = conta desativada (soft delete) |
-
-### Tabela `usuario_papel` — Vínculo Usuário ↔ Papel (N:N)
-
-| Coluna | Tipo | Descrição |
-|---|---|---|
-| `usuario_id` | BIGINT FK | Referência a `usuarios.id` |
-| `papel_id` | BIGINT FK | Referência a `papeis.id` |
-| PK composta | — | `(usuario_id, papel_id)` |
-
-### Tabela `categorias` — Categorias de produtos/serviços
-
-| Coluna | Tipo | Descrição |
-|---|---|---|
-| `id` | BIGSERIAL PK | Identificador único |
-| `nome` | VARCHAR(100) UNIQUE | Ex: Cortes, Barba, Pomadas |
-| `descricao` | VARCHAR(500) | Descrição opcional |
-
-### Tabela `fornecedores` — Fornecedores de produtos
-
-| Coluna | Tipo | Descrição |
-|---|---|---|
-| `id` | BIGSERIAL PK | Identificador único |
-| `nome` | VARCHAR(200) NOT NULL | Razão social |
-| `cnpj` | CHAR(14) UNIQUE | 14 dígitos numéricos sem formatação |
-| `email_contato` | VARCHAR(200) | Email de contato |
-| `telefone` | VARCHAR(20) | Telefone opcional |
-
-**Constraint:** `CHECK (cnpj ~ '^[0-9]{14}$')` — apenas dígitos.
-
-### Tabela `produtos` — Catálogo de produtos e serviços
-
-| Coluna | Tipo | Descrição |
-|---|---|---|
-| `id` | BIGSERIAL PK | Identificador único |
-| `nome` | VARCHAR(150) NOT NULL | Nome do produto/serviço |
-| `descricao` | VARCHAR(500) | Descrição opcional |
-| `preco` | NUMERIC(10,2) | Preço de venda (≥ 0) |
-| `quantidade_estoque` | INTEGER | `NULL` para serviços sem estoque |
-| `quantidade_minima` | INTEGER | Gatilho de alerta de reposição |
-| `ativo` | BOOLEAN DEFAULT true | Soft delete — histórico preservado |
-| `categoria_id` | BIGINT FK NOT NULL | Categoria do produto |
-| `fornecedor_id` | BIGINT FK NULL | `NULL` para serviços internos |
-
-**Índices:** `(ativo)` parcial, `(categoria_id)`, `(fornecedor_id)`.
-
-### Tabela `vendas` — Vendas / Comandas
-
-| Coluna | Tipo | Descrição |
-|---|---|---|
-| `id` | BIGSERIAL PK | Identificador único |
-| `data_venda` | TIMESTAMP DEFAULT NOW() | Momento da abertura |
-| `valor_total` | NUMERIC(12,2) DEFAULT 0 | Total calculado (≥ 0) |
-| `forma_pagamento` | VARCHAR(20) | `DINHEIRO`, `CARTAO_CREDITO`, `CARTAO_DEBITO`, `PIX`, `TRANSFERENCIA` |
-| `status` | VARCHAR(15) DEFAULT 'ABERTA' | `ABERTA`, `FECHADA`, `CANCELADA` |
-| `usuario_id` | BIGINT FK NOT NULL | Operador que realizou a venda |
-
-**Índices:** `(usuario_id)`, `(data_venda)`, `(status)`.
-
-### Tabela `itens_venda` — Itens de cada venda
-
-| Coluna | Tipo | Descrição |
-|---|---|---|
-| `id` | BIGSERIAL PK | Identificador único |
-| `quantidade` | INTEGER NOT NULL | Quantidade vendida (> 0) |
-| `preco_unitario` | NUMERIC(10,2) | **Snapshot** do preço no momento da venda |
-| `venda_id` | BIGINT FK NOT NULL | Venda à qual pertence (CASCADE DELETE) |
-| `produto_id` | BIGINT FK NOT NULL | Produto vendido |
-
-> ⚠️ `preco_unitario` é um **snapshot**: guarda o preço do produto no momento da venda. Se o produto for reajustado depois, o histórico não muda.
-
-### Tabela `log_acessos` — Auditoria (append-only)
-
-| Coluna | Tipo | Descrição |
-|---|---|---|
-| `id` | BIGSERIAL PK | Identificador único |
-| `data_hora` | TIMESTAMP NOT NULL | Momento da ação |
-| `acao` | VARCHAR(100) | Ex: `LOGIN`, `LOGOUT`, `VENDA`, `ESTORNO` |
-| `ip` | VARCHAR(45) | IP do cliente (suporta IPv4 e IPv6) |
-| `resultado` | VARCHAR(10) | `SUCESSO` ou `ERRO` |
-| `usuario_id` | BIGINT FK NOT NULL | Quem executou a ação (RESTRICT — nunca apaga) |
-
-> Esta tabela é **imutável**: registros nunca devem ser alterados ou deletados.
+| **Aplicação** | http://localhost:8080/erp-barbershop | (ver Passo 4) |
+| **WildFly Admin Console** | http://localhost:9990 | `admin` / `Admin#2026` |
+| **PostgreSQL** | `localhost:5432` | `erp_admin` / `erp_secret_2026` |
 
 ---
 
-## ⚙️ Back-end — Módulos DDD
+### Passo 4 — Criar o primeiro usuário (Admin)
 
-A aplicação segue uma arquitetura em camadas dentro de cada módulo:
-`Controller (CDI/JSF) → Service (EJB @Stateless) → Repository (JPA) → Entity`
+> ⚠️ **Não existe usuário padrão pré-cadastrado.** O banco inicia apenas com os papéis cadastrados.
+> É necessário inserir o primeiro usuário administrador diretamente no banco.
 
-### Módulo `identidade` — Usuários e Segurança
+#### Gerar o hash BCrypt da senha
 
-**Entidades:** [`Usuario`](file:///d:/UERJ/5%20periodo/POO3/Projeto_POO3/src/main/java/com/erp/identidade/model/Usuario.java), [`Papel`](file:///d:/UERJ/5%20periodo/POO3/Projeto_POO3/src/main/java/com/erp/identidade/model/Papel.java), [`LogAcesso`](file:///d:/UERJ/5%20periodo/POO3/Projeto_POO3/src/main/java/com/erp/identidade/model/LogAcesso.java)
+A senha é armazenada com **BCrypt, fator de custo 12**. Você pode gerar o hash online em:
+https://bcrypt-generator.com (use rounds = 12)
 
-| Classe | Tipo | Responsabilidade |
-|---|---|---|
-| `UsuarioService` | `@Stateless` EJB | CRUD de usuários, hash BCrypt, validação de duplicatas |
-| `UsuarioRepository` | JPA | Queries: busca por email, listagem ativa |
-| `UsuarioController` | `@ViewScoped` CDI | Gerencia o formulário de usuários na tela |
-| `UsuarioDetailsService` | Spring | Carrega `UserDetails` para o Spring Security |
-| `SecurityConfig` | Spring `@Configuration` | Regras RBAC, login, logout, CSRF, headers |
-| `LoginAttemptService` | `@Singleton` EJB | Rastreia falhas de login por IP (brute-force) |
-| `AuditoriaFilter` | Servlet Filter | Grava `LogAcesso` em toda requisição |
+Exemplo: a senha `admin123` gera um hash como:
+```
+$2a$12$Yl3v8RHg5NZbKl0jqGfRhOrEkFKqFBgGUCvR5k7dKxIMHKW8O6Mna
+```
 
-### Módulo `catalogo` — Produtos e Categorias
+#### Inserir o usuário via SQL no container
 
-**Entidades:** `Produto`, `Categoria`
+```powershell
+# Entrar no psql do container
+docker exec -it erp-barbershop-db psql -U erp_admin -d erp_db
+```
 
-| Classe | Tipo | Responsabilidade |
-|---|---|---|
-| `ProdutoService` | `@Stateless` EJB | CRUD de produtos, controle de estoque, soft delete |
-| `ProdutoRepository` | JPA | Queries: busca por categoria, estoque baixo, ativos |
-| `ProdutoController` | `@ViewScoped` CDI | Formulário e listagem de produtos na tela |
+```sql
+-- 1. Verificar se os papéis já existem
+SELECT * FROM papeis;
 
-### Módulo `compras` — Fornecedores
+-- 2. Inserir o usuário admin
+-- SUBSTITUA o hash abaixo pelo hash BCrypt gerado para a sua senha!
+INSERT INTO usuarios (nome, email, senha, ativo)
+VALUES (
+    'Administrador',
+    'admin@barbearia.com',
+    '$2a$12$Yl3v8RHg5NZbKl0jqGfRhOrEkFKqFBgGUCvR5k7dKxIMHKW8O6Mna',
+    true
+);
 
-**Entidades:** [`Fornecedor`](file:///d:/UERJ/5%20periodo/POO3/Projeto_POO3/src/main/java/com/erp/compras/model/Fornecedor.java), `SugestaoCompra`
+-- 3. Vincular o usuário ao papel ROLE_ADMIN
+INSERT INTO usuario_papel (usuario_id, papel_id)
+SELECT u.id, p.id
+FROM usuarios u, papeis p
+WHERE u.email = 'admin@barbearia.com'
+  AND p.nome = 'ROLE_ADMIN';
 
-| Classe | Tipo | Responsabilidade |
-|---|---|---|
-| `FornecedorService` | `@Stateless` EJB | CRUD de fornecedores, validação de CNPJ |
-| `FornecedorRepository` | JPA | Queries: busca por CNPJ, listagem |
-| `FornecedorController` | `@ViewScoped` CDI | Formulário de fornecedores |
+-- 4. Confirmar
+SELECT u.nome, u.email, u.ativo, p.nome AS papel
+FROM usuarios u
+JOIN usuario_papel up ON u.id = up.usuario_id
+JOIN papeis p ON p.id = up.papel_id;
 
-### Módulo `vendas` — PDV (Ponto de Venda)
+-- Sair
+\q
+```
 
-**Entidades:** `Venda` (Aggregate Root), `ItemVenda`
-
-| Classe | Tipo | Responsabilidade |
-|---|---|---|
-| `VendaService` | `@Stateless` EJB | Abre/fecha/cancela venda, adiciona itens, `PESSIMISTIC_WRITE` no estoque |
-| `VendaRepository` | JPA | Queries: vendas abertas por usuário, histórico |
-| `PdvController` | `@ViewScoped` CDI | Controla o fluxo do carrinho no PDV |
-
-> `PESSIMISTIC_WRITE` é usado ao decrementar estoque — evita race condition quando dois atendentes vendem o último item simultaneamente.
-
-### Módulo `relatorios` — Dashboard e Exportações
-
-| Classe | Tipo | Responsabilidade |
-|---|---|---|
-| `RelatorioService` | `@Stateless` EJB | 5 queries JPQL analíticas (KPIs, top-5, histórico, alertas) |
-| `DashboardController` | `@ViewScoped` CDI | Carrega dados e monta os modelos dos gráficos PrimeFaces |
-| `RelatorioExportController` | `@RequestScoped` CDI | Exporta PDF/CSV diretamente no `HttpServletResponse` |
-| `ProdutoMaisVendidoDTO` | DTO | Projeção JPQL (`NEW`) para top-5 produtos |
-| `VendasPorDiaDTO` | DTO | Projeção JPQL para histórico diário |
+Agora acesse http://localhost:8080/erp-barbershop e faça login com:
+- **Email:** `admin@barbearia.com`
+- **Senha:** a senha que você usou para gerar o hash (ex: `admin123`)
 
 ---
 
-## 🖥️ Front-end — Páginas e Componentes
+### Comandos SQL Úteis para Desenvolvimento
 
-### Tecnologia
+```powershell
+# Conectar ao banco
+docker exec -it erp-barbershop-db psql -U erp_admin -d erp_db
 
-O front-end usa **JSF 2.3** (JavaServer Faces) com componentes **PrimeFaces 12**. As páginas são arquivos `.xhtml` (Facelets). O estilo usa **CSS puro** com tema dark personalizado.
+# Rodar uma query direta (sem entrar no psql)
+docker exec erp-barbershop-db psql -U erp_admin -d erp_db -c "SELECT * FROM usuarios;"
 
-### Páginas disponíveis
-
-| Página | Acesso | Descrição |
-|---|---|---|
-| `/login.xhtml` | Público | Tela de login com email + senha |
-| `/pages/relatorios/dashboard.xhtml` | Admin | Painel com KPIs e gráficos |
-| `/pages/relatorios/relatorios.xhtml` | Admin | Exportação de relatórios PDF/CSV |
-| `/pages/identidade/usuarios.xhtml` | Admin | CRUD de usuários do sistema |
-| `/pages/catalogo/produtos.xhtml` | Admin + Default | CRUD de produtos e serviços |
-| `/pages/vendas/pdv.xhtml` | Admin + Default | Ponto de venda (carrinho) |
-| `/pages/compras/fornecedores.xhtml` | Admin + Default | CRUD de fornecedores |
-
-### Componentes PrimeFaces usados
-
-| Componente | Onde | Função |
-|---|---|---|
-| `<p:dataTable>` | Produtos, Usuários, Fornecedores | Tabela com paginação, ordenação e filtro |
-| `<p:dialog>` | Formulários de CRUD | Modal de criação/edição |
-| `<p:chart>` | Dashboard | Gráficos de barras e pizza (Chart.js) |
-| `<p:datePicker>` | Relatórios | Seletor de período para exportação |
-| `<p:commandButton>` | Toda a aplicação | Botões com AJAX |
-| `<p:inputText>` | Formulários | Campos de texto com validação |
-| `<p:growl>` | Toda a aplicação | Notificações de sucesso/erro |
-| `<p:confirmDialog>` | Deleções | Confirmação antes de excluir |
-| `<p:panelGrid>` | Formulários | Layout de formulários em grid |
-
-### Design System
-
-O projeto usa um **tema dark** próprio definido em `erp.css` com variáveis CSS:
-
-```css
---color-bg:       #0f1117  /* Fundo da página */
---color-surface:  #1a1d27  /* Cards e painéis */
---color-primary:  #6c63ff  /* Cor de destaque (roxo) */
---color-success:  #22c55e  /* Verde */
---color-warning:  #f59e0b  /* Amarelo */
---color-danger:   #ef4444  /* Vermelho */
+# Rodar um arquivo .sql externo
+docker exec -i erp-barbershop-db psql -U erp_admin -d erp_db < meu_script.sql
 ```
 
-### Dashboard — Gráficos
+```sql
+-- Listar todas as tabelas
+\dt
 
-| Gráfico | Tipo | Dados |
-|---|---|---|
-| Faturamento Semanal | Barras verticais | Soma das vendas dos últimos 7 dias |
-| Top-5 Mais Vendidos | Barras horizontais | Produtos com mais unidades vendidas no mês |
-| Receita por Produto | Pizza | Participação % de cada produto na receita |
+-- Ver estrutura de uma tabela
+\d usuarios
+\d produtos
+\d vendas
 
-Os gráficos usam **extenders Chart.js** para aplicar o tema dark (tooltips em R$, fundo escuro, cores harmoniosas).
+-- Ver todos os usuários e seus papéis
+SELECT u.id, u.nome, u.email, u.ativo, p.nome AS papel
+FROM usuarios u
+LEFT JOIN usuario_papel up ON u.id = up.usuario_id
+LEFT JOIN papeis p ON p.id = up.papel_id
+ORDER BY u.nome;
 
----
+-- Ver todos os produtos com categoria e fornecedor
+SELECT p.nome, p.preco, p.quantidade_estoque, c.nome AS categoria, f.nome AS fornecedor
+FROM produtos p
+JOIN categorias c ON c.id = p.categoria_id
+LEFT JOIN fornecedores f ON f.id = p.fornecedor_id
+WHERE p.ativo = true
+ORDER BY p.nome;
 
-## 🔐 Segurança
+-- Ver vendas do dia
+SELECT v.id, v.data_venda, v.valor_total, v.status, v.forma_pagamento, u.nome AS vendedor
+FROM vendas v
+JOIN usuarios u ON u.id = v.usuario_id
+WHERE DATE(v.data_venda) = CURRENT_DATE
+ORDER BY v.data_venda DESC;
 
-### Autenticação
+-- Ver itens de uma venda específica (substitua 1 pelo ID da venda)
+SELECT iv.id, pr.nome AS produto, iv.quantidade, iv.preco_unitario,
+       (iv.quantidade * iv.preco_unitario) AS subtotal
+FROM itens_venda iv
+JOIN produtos pr ON pr.id = iv.produto_id
+WHERE iv.venda_id = 1;
 
-- Login via **email + senha**
-- Senha armazenada como **hash BCrypt com custo 12** (~250ms por verificação)
-- **Bloqueio por IP** após 5 tentativas falhas (liberado após 30 minutos)
+-- Ver log de acessos recentes
+SELECT u.nome, l.acao, l.resultado, l.ip, l.data_hora
+FROM log_acessos l
+JOIN usuarios u ON u.id = l.usuario_id
+ORDER BY l.data_hora DESC
+LIMIT 20;
 
-### Autorização (RBAC)
+-- Produtos com estoque baixo (precisam de reposição)
+SELECT nome, quantidade_estoque, quantidade_minima
+FROM produtos
+WHERE ativo = true
+  AND quantidade_estoque IS NOT NULL
+  AND quantidade_estoque <= quantidade_minima
+ORDER BY quantidade_estoque;
 
-| Papel | Acesso |
-|---|---|
-| `ROLE_ADMIN` | Tudo: usuários, relatórios, dashboard, produtos, vendas, compras |
-| `ROLE_DEFAULT` | Limitado: produtos, vendas, compras (sem usuários e relatórios) |
-
-> Os papéis `ROLE_GERENTE`, `ROLE_BARBEIRO` e `ROLE_CAIXA` existem no banco mas ainda não possuem regras de autorização mapeadas — podem ser adicionadas expandindo o `SecurityConfig`.
-
-### Proteções implementadas
-
-| Proteção | Mecanismo |
-|---|---|
-| **CSRF** | Token automático Spring Security em todos os forms |
-| **XSS** | Header `X-XSS-Protection` + CSP (Content-Security-Policy) |
-| **Clickjacking** | Header `X-Frame-Options: DENY` |
-| **Session Fixation** | Migração de sessão no login (`migrateSession()`) |
-| **Sessão múltipla** | Máximo 1 sessão ativa por usuário |
-| **Session timeout** | 30 minutos de inatividade |
-| **Auditoria** | Todo acesso gravado em `log_acessos` |
-
-### HTTPS (Produção)
-
-O HTTPS está **desabilitado por padrão** para facilitar o desenvolvimento com Docker Compose. Para ativar em produção:
-1. Configure o keystore SSL no WildFly
-2. Descomente o `security-constraint` em `web.xml`
-3. Descomente `.requiresChannel().anyRequest().requiresSecure()` em `SecurityConfig.java`
-
----
-
-## 🐳 Infraestrutura Docker
-
-### Como funciona o Dockerfile
-
-```
-Stage 1 (builder)           Stage 2 (runtime)
-──────────────────          ──────────────────────────
-maven:3.9-jdk17             wildfly:26.1.3.Final-jdk17
-│
-├─ COPY pom.xml             ├─ Configura usuário admin
-├─ RUN mvn dependency:go-offline  ← cache de deps
-├─ COPY src/               ├─ COPY CLI datasource script
-├─ RUN mvn package          ├─ RUN jboss-cli.sh (configura banco)
-└─ target/erp-barbershop.war ──► COPY → /deployments/
-                            └─ CMD standalone.sh -b 0.0.0.0
-```
-
-**Por que multi-stage?** A imagem final não contém Maven, JDK completo, nem código-fonte. Apenas o WAR compilado e o WildFly.
-
-### Como funciona o Docker Compose
-
-```
-docker compose up --build
-       │
-       ├─► [1] Constrói a imagem wildfly (Dockerfile multi-stage)
-       │
-       ├─► [2] Inicia postgres:15-alpine
-       │        ├─ Cria banco "erp_db"
-       │        ├─ Executa schema.sql (tabelas + papéis padrão)
-       │        └─ Healthcheck: pg_isready (aguarda até estar pronto)
-       │
-       └─► [3] Inicia wildfly (após postgres passar no healthcheck)
-                ├─ Lê variáveis DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD
-                ├─ WildFly conecta ao banco via JNDI datasource
-                └─ Deploy automático do erp-barbershop.war
-```
-
-### Variáveis de Ambiente
-
-| Variável | Valor padrão | Onde é usada |
-|---|---|---|
-| `DB_HOST` | `postgres` | Hostname do banco no Docker Compose |
-| `DB_PORT` | `5432` | Porta do PostgreSQL |
-| `DB_NAME` | `erp_db` | Nome do banco de dados |
-| `DB_USER` | `erp_admin` | Usuário do banco |
-| `DB_PASSWORD` | `erp_secret_2026` | Senha do banco |
-
----
-
-## ☸️ Infraestrutura Kubernetes (Produção)
-
-Os manifestos em `k8s/` permitem rodar o sistema em um cluster Kubernetes (Minikube, Kind ou cloud).
-
-| Arquivo | Função |
-|---|---|
-| `namespace.yaml` | Cria o namespace `erp` para isolar os recursos |
-| `configmap.yaml` | Configurações não-sensíveis (host, porta, JVM opts) |
-| `secret.yaml` | Credenciais em Base64 (senha do banco, admin WildFly) |
-| `persistence.yaml` | Volume persistente de 2GB para o PostgreSQL |
-| `deployment.yaml` | 2 réplicas WildFly + 1 réplica PostgreSQL com probes de saúde |
-| `service.yaml` | ClusterIP (banco), NodePort 30080 (app), ClusterIP (admin) |
-
-```bash
-# Deploy Kubernetes (requer Minikube instalado)
-chmod +x deploy-k8s.sh
-./deploy-k8s.sh
+-- Resetar senha de um usuário
+-- (substitua pelo novo hash BCrypt gerado)
+UPDATE usuarios
+SET senha = '$2a$12$SEU_NOVO_HASH_AQUI'
+WHERE email = 'admin@barbearia.com';
 ```
 
 ---
 
-## 🔍 Problemas Encontrados e Corrigidos
+### Parar os containers (sem apagar dados)
 
-Durante a análise final do projeto, foram identificados e corrigidos **2 problemas** que impediam a execução via Docker Compose:
-
-### Problema 1 — HTTPS forçado no `web.xml`
-**Sintoma:** O navegador ficava redirecionando em loop ou exibia "ERR_TOO_MANY_REDIRECTS".
-
-**Causa:** O `<transport-guarantee>CONFIDENTIAL</transport-guarantee>` no `web.xml` instruía o WildFly a redirecionar toda requisição HTTP para HTTPS. Como o Docker Compose não configura SSL, o redirect não tinha destino.
-
-**Correção:** O bloco `<security-constraint>` foi comentado no `web.xml`. Para produção com SSL, basta descomentar.
-
-### Problema 2 — HTTPS forçado no Spring Security
-**Sintoma:** Mesmo sem o bloco do `web.xml`, o Spring Security ainda redirecionava para HTTPS.
-
-**Causa:** `.requiresChannel().anyRequest().requiresSecure()` no `SecurityConfig.java`.
-
-**Correção:** O bloco foi comentado. Ambos precisam ser ativados juntos quando SSL for configurado.
-
-### Problema 3 — Schema SQL não era criado automaticamente
-**Sintoma:** O banco subia vazio; o WildFly falhava ao tentar validar as entidades JPA.
-
-**Causa:** O `docker-compose.yml` não montava o `schema.sql` no PostgreSQL.
-
-**Correção:** Adicionado o volume `./docs/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro` no `docker-compose.yml`. O PostgreSQL executa automaticamente arquivos `.sql` do diretório `/docker-entrypoint-initdb.d/` na primeira inicialização.
-
----
-
-## 🛠️ Guia de Solução de Problemas
-
-### A aplicação não abre no navegador
-```bash
-# Verifique se os containers estão rodando
-docker compose ps
-
-# Veja os logs do WildFly
-docker compose logs wildfly --tail=50
-
-# O WildFly demora ~2-3 min. Aguarde a mensagem:
-# "WildFly Full 26.1.3.Final (WildFly Core 18.1.1.Final) started"
+```powershell
+docker-compose down
 ```
 
-### Erro de conexão com o banco
-```bash
-# Verifique se o PostgreSQL está saudável
-docker compose ps postgres
-# Status deve ser "healthy", não "starting"
+### Parar E apagar todos os dados
 
-# Veja os logs do banco
-docker compose logs postgres --tail=30
+```powershell
+docker-compose down -v
 ```
 
-### Dados foram perdidos após reiniciar
-```bash
-# Verifique se o volume existe
-docker volume ls | grep pgdata
+### Ver logs em tempo real
 
-# Se não existir, recrie:
-docker compose down
-docker compose up --build
+```powershell
+# Todos os containers
+docker-compose logs -f
+
+# Apenas o WildFly
+docker-compose logs -f wildfly --tail 100
+
+# Apenas o PostgreSQL
+docker-compose logs -f postgres
 ```
-
-### Quero recriar o banco do zero (apagar todos os dados)
-```bash
-docker compose down -v   # -v remove os volumes
-docker compose up --build
-```
-
-### Porta 8080 já está em uso
-```bash
-# Mude a porta no docker-compose.yml:
-# ports:
-#   - "8090:8080"   ← Porta externa diferente
-# Acesse: http://localhost:8090/erp-barbershop
-```
-
----
-
-## 📊 Requisições JPQL — Relatórios
-
-O `RelatorioService` contém 5 queries analíticas otimizadas:
-
-| Query | Técnica | Descrição |
-|---|---|---|
-| Total vendas hoje/mês | `COALESCE(SUM(...), 0)` | Retorna 0 quando não há vendas (sem NPE) |
-| Top-5 mais vendidos | `NEW DTO(...)` + `GROUP BY p.id` | Projeção direta sem carregar entidades completas |
-| Histórico 7 dias | `FUNCTION('date',...)` + preenchimento de gaps em Java | Todos os 7 dias aparecem, mesmo sem venda |
-| Alertas de estoque | `quantidade_estoque <= quantidade_minima` | Índice parcial acelera a query |
-| Relatório financeiro | `DISTINCT + LEFT JOIN FETCH` | Anti-N+1: carrega hierarquia em 1 query |
-
----
-
-## 🎓 Contexto Acadêmico
-
-| Item | Detalhe |
-|---|---|
-| **Disciplina** | Programação Orientada a Objetos 3 (POO3) |
-| **Instituição** | UERJ — Universidade do Estado do Rio de Janeiro |
-| **Período** | 5º Período, 2026 |
-| **Padrão arquitetural** | DDD (Domain-Driven Design) em monolito modular |
-| **Etapas do projeto** | 6 etapas: Modelagem → Banco → Segurança → Vendas → Relatórios → DevOps |
