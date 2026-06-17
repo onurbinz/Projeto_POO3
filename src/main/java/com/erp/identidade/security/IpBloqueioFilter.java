@@ -5,7 +5,6 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import javax.servlet.FilterChain;
 import javax.servlet.ServletException;
-import javax.servlet.annotation.WebFilter;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
@@ -30,7 +29,6 @@ import java.util.logging.Logger;
  * @see LoginAttemptService
  * @see SecurityConfig
  */
-@WebFilter(filterName = "IpBloqueioFilter", urlPatterns = "/login")
 public class IpBloqueioFilter extends OncePerRequestFilter {
 
     private static final Logger LOG = Logger.getLogger(IpBloqueioFilter.class.getName());
@@ -64,7 +62,7 @@ public class IpBloqueioFilter extends OncePerRequestFilter {
                     "[BLOQUEIO] IP '%s' bloqueado — tentativa de login recusada.", ip
                 ));
                 // Interrompe a cadeia e redireciona sem processar a autenticação
-                response.sendRedirect(request.getContextPath() + "/login?erro=bloqueado");
+                response.sendRedirect(request.getContextPath() + "/login.xhtml?erro=bloqueado");
                 return;
             }
         }
