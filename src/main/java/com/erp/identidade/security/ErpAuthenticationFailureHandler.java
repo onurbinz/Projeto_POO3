@@ -43,7 +43,7 @@ public class ErpAuthenticationFailureHandler
      * @param loginAttemptService serviço de controle de tentativas por IP
      */
     public ErpAuthenticationFailureHandler(LoginAttemptService loginAttemptService) {
-        super("/login?erro=true");  // URL padrão de falha
+        super("/login.xhtml?erro=true");  // URL padrão de falha — usa .xhtml (a página física)
         this.loginAttemptService = loginAttemptService;
     }
 
@@ -66,7 +66,7 @@ public class ErpAuthenticationFailureHandler
         // [2] Conta bloqueada no banco (ativo = false)
         // Verificado antes do bloqueio por IP pois tem tratamento diferente
         if (exception instanceof LockedException) {
-            response.sendRedirect(request.getContextPath() + "/login?erro=conta_bloqueada");
+            response.sendRedirect(request.getContextPath() + "/login.xhtml?erro=conta_bloqueada");
             return;
         }
 
@@ -76,13 +76,13 @@ public class ErpAuthenticationFailureHandler
                 "[BLOQUEIO] IP '%s' bloqueado após exceder %d tentativas falhas.",
                 ip, LoginAttemptService.MAX_TENTATIVAS
             ));
-            response.sendRedirect(request.getContextPath() + "/login?erro=bloqueado");
+            response.sendRedirect(request.getContextPath() + "/login.xhtml?erro=bloqueado");
             return;
         }
 
         // [4] Falha comum — informa quantas tentativas restam
         int restantes = loginAttemptService.tentativasRestantes(ip);
-        setDefaultFailureUrl("/login?erro=true&restantes=" + restantes);
+        setDefaultFailureUrl("/login.xhtml?erro=true&restantes=" + restantes);
 
         // Delega o redirecionamento para a superclasse
         super.onAuthenticationFailure(request, response, exception);
