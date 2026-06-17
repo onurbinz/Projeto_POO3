@@ -8,6 +8,8 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Logger;
 
+import org.springframework.stereotype.Service;
+
 /**
  * Serviço de controle de tentativas falhas de login — proteção contra brute-force.
  *
@@ -34,6 +36,7 @@ import java.util.logging.Logger;
  * @see ErpAuthenticationFailureHandler
  * @see ErpAuthenticationSuccessHandler
  */
+@Service
 @Singleton
 @Lock(LockType.READ)  // Leitura concorrente por padrão; escritas usam @Lock(WRITE)
 public class LoginAttemptService {

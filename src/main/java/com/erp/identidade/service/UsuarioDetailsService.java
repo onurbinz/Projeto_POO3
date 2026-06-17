@@ -17,6 +17,8 @@ import javax.persistence.PersistenceContext;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import org.springframework.stereotype.Service;
+
 /**
  * Implementação do {@link UserDetailsService} do Spring Security.
  *
@@ -29,6 +31,7 @@ import java.util.stream.Collectors;
  *
  * @see SecurityConfig
  */
+@Service
 @Stateless
 public class UsuarioDetailsService implements UserDetailsService {
 
